@@ -24,7 +24,7 @@ const (
 func init() {
 	// This should guarantee that at runtime the defaultAlgorithm will not
 	// result in errors when fetching a macer or signer (see algorithms.go)
-	if ok, err := isAvailable(defaultAlgorithm); err != nil {
+	if ok, err := isAvailable(string(defaultAlgorithm)); err != nil {
 		panic(err)
 	} else if !ok {
 		panic(fmt.Sprintf("the default httpsig algorithm is unavailable: %q", defaultAlgorithm))
@@ -33,55 +33,78 @@ func init() {
 
 const (
 	HMAC_SHA224      Algorithm = hmacPrefix + "-" + sha224String
-	HMAC_SHA256                = hmacPrefix + "-" + sha256String
-	HMAC_SHA384                = hmacPrefix + "-" + sha384String
-	HMAC_SHA512                = hmacPrefix + "-" + sha512String
-	HMAC_RIPEMD160             = hmacPrefix + "-" + ripemd160String
-	HMAC_SHA3_224              = hmacPrefix + "-" + sha3_224String
-	HMAC_SHA3_256              = hmacPrefix + "-" + sha3_256String
-	HMAC_SHA3_384              = hmacPrefix + "-" + sha3_384String
-	HMAC_SHA3_512              = hmacPrefix + "-" + sha3_512String
-	HMAC_SHA512_224            = hmacPrefix + "-" + sha512_224String
-	HMAC_SHA512_256            = hmacPrefix + "-" + sha512_256String
-	HMAC_BLAKE2S_256           = hmacPrefix + "-" + blake2s_256String
-	HMAC_BLAKE2B_256           = hmacPrefix + "-" + blake2b_256String
-	HMAC_BLAKE2B_384           = hmacPrefix + "-" + blake2b_384String
-	HMAC_BLAKE2B_512           = hmacPrefix + "-" + blake2b_512String
-	BLAKE2S_256                = blake2s_256String
-	BLAKE2B_256                = blake2b_256String
-	BLAKE2B_384                = blake2b_384String
-	BLAKE2B_512                = blake2b_512String
-	RSA_SHA224                 = rsaPrefix + "-" + sha224String
+	HMAC_SHA256      Algorithm = hmacPrefix + "-" + sha256String
+	HMAC_SHA384      Algorithm = hmacPrefix + "-" + sha384String
+	HMAC_SHA512      Algorithm = hmacPrefix + "-" + sha512String
+	HMAC_RIPEMD160   Algorithm = hmacPrefix + "-" + ripemd160String
+	HMAC_SHA3_224    Algorithm = hmacPrefix + "-" + sha3_224String
+	HMAC_SHA3_256    Algorithm = hmacPrefix + "-" + sha3_256String
+	HMAC_SHA3_384    Algorithm = hmacPrefix + "-" + sha3_384String
+	HMAC_SHA3_512    Algorithm = hmacPrefix + "-" + sha3_512String
+	HMAC_SHA512_224  Algorithm = hmacPrefix + "-" + sha512_224String
+	HMAC_SHA512_256  Algorithm = hmacPrefix + "-" + sha512_256String
+	HMAC_BLAKE2S_256 Algorithm = hmacPrefix + "-" + blake2s_256String
+	HMAC_BLAKE2B_256 Algorithm = hmacPrefix + "-" + blake2b_256String
+	HMAC_BLAKE2B_384 Algorithm = hmacPrefix + "-" + blake2b_384String
+	HMAC_BLAKE2B_512 Algorithm = hmacPrefix + "-" + blake2b_512String
+	BLAKE2S_256      Algorithm = blake2s_256String
+	BLAKE2B_256      Algorithm = blake2b_256String
+	BLAKE2B_384      Algorithm = blake2b_384String
+	BLAKE2B_512      Algorithm = blake2b_512String
+	RSA_SHA224       Algorithm = rsaPrefix + "-" + sha224String
 	// RSA_SHA256 is the default algorithm.
-	RSA_SHA256      = rsaPrefix + "-" + sha256String
-	RSA_SHA384      = rsaPrefix + "-" + sha384String
-	RSA_SHA512      = rsaPrefix + "-" + sha512String
-	RSA_RIPEMD160   = rsaPrefix + "-" + ripemd160String
-	RSA_SHA3_224    = rsaPrefix + "-" + sha3_224String
-	RSA_SHA3_256    = rsaPrefix + "-" + sha3_256String
-	RSA_SHA3_384    = rsaPrefix + "-" + sha3_384String
-	RSA_SHA3_512    = rsaPrefix + "-" + sha3_512String
-	RSA_SHA512_224  = rsaPrefix + "-" + sha512_224String
-	RSA_SHA512_256  = rsaPrefix + "-" + sha512_256String
-	RSA_BLAKE2S_256 = rsaPrefix + "-" + blake2s_256String
-	RSA_BLAKE2B_256 = rsaPrefix + "-" + blake2b_256String
-	RSA_BLAKE2B_384 = rsaPrefix + "-" + blake2b_384String
-	RSA_BLAKE2B_512 = rsaPrefix + "-" + blake2b_512String
+	RSA_SHA256      Algorithm = rsaPrefix + "-" + sha256String
+	RSA_SHA384      Algorithm = rsaPrefix + "-" + sha384String
+	RSA_SHA512      Algorithm = rsaPrefix + "-" + sha512String
+	RSA_RIPEMD160   Algorithm = rsaPrefix + "-" + ripemd160String
+	RSA_SHA3_224    Algorithm = rsaPrefix + "-" + sha3_224String
+	RSA_SHA3_256    Algorithm = rsaPrefix + "-" + sha3_256String
+	RSA_SHA3_384    Algorithm = rsaPrefix + "-" + sha3_384String
+	RSA_SHA3_512    Algorithm = rsaPrefix + "-" + sha3_512String
+	RSA_SHA512_224  Algorithm = rsaPrefix + "-" + sha512_224String
+	RSA_SHA512_256  Algorithm = rsaPrefix + "-" + sha512_256String
+	RSA_BLAKE2S_256 Algorithm = rsaPrefix + "-" + blake2s_256String
+	RSA_BLAKE2B_256 Algorithm = rsaPrefix + "-" + blake2b_256String
+	RSA_BLAKE2B_384 Algorithm = rsaPrefix + "-" + blake2b_384String
+	RSA_BLAKE2B_512 Algorithm = rsaPrefix + "-" + blake2b_512String
 )
 
-// HTTP Signatures can be applied to either the "Authorization" or "Signature"
-// HTTP header
+// HTTP Signatures can be applied to different HTTP headers, depending on the
+// expected application behavior.
 type SignatureScheme string
 
 const (
-	Signature     SignatureScheme = "Signature"
-	Authorization                 = "Authorization"
+	// Signature will place the HTTP Signature into the 'Signature' HTTP
+	// header.
+	Signature SignatureScheme = "Signature"
+	// Authorization will place the HTTP Signature into the 'Authorization'
+	// HTTP header.
+	Authorization SignatureScheme = "Authorization"
 )
 
 // Signers will sign HTTP requests or responses based on the algorithms and
 // headers selected at creation time.
+//
+// Note that signatures do set the deprecated 'algorithm' parameter for
+// backwards compatibility.
 type Signer interface {
+	// SignRequest signs the request using a private key. The public key id
+	// is used by the HTTP server to identify which key to use to verify the
+	// signature.
+	//
+	// If the Signer was created using a MAC based algorithm, then the
+	// private key is expected to be of type []byte. If the Signer was
+	// created using an RSA based algorithm, then the private key is
+	// expected to be of type *rsa.PrivateKey.
 	SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *http.Request) error
+	// SignResponse signs the response using a private key. The public key
+	// id is used by the HTTP client to identify which key to use to verify
+	// the signature.
+	//
+	// If the Signer was created using a MAC based algorithm, then the
+	// private key is expected to be of type []byte. If the Signer was
+	// created using an RSA based algorithm, then the private key is
+	// expected to be of type *rsa.PrivateKey.
 	SignResponse(pKey crypto.PrivateKey, pubKeyId string, r http.ResponseWriter) error
 }
 
@@ -110,7 +133,42 @@ func NewSigner(prefs []Algorithm, headers []string, scheme SignatureScheme) (Sig
 	return s, defaultAlgorithm, err
 }
 
-// TODO: Verification
+// Verifier verifies HTTP Signatures.
+//
+// It will determine which of the supported headers has the parameters
+// that define the signature.
+//
+// Note that verification ignores the deprecated 'algorithm' parameter.
+type Verifier interface {
+	// KeyId gets the public key id that the signature is signed with.
+	//
+	// Note that the application is expected to determine the algorithm
+	// used based on metadata or out-of-band information for this key id.
+	KeyId() string
+	// Verify accepts the public key specified by KeyId and returns an
+	// error if verification fails or if the signature is malformed. The
+	// algorithm must be the one used to create the signature in order to
+	// pass verification. The algorithm is determined based on metadata or
+	// out-of-band information for the key id.
+	//
+	// If the signature was created using a MAC based algorithm, then the
+	// public key is expected to be of type []byte. If the signature was
+	// created using an RSA based algorithm, then the public key is
+	// expected to be of type *rsa.PublicKey.
+	Verify(pKey crypto.PublicKey, algo Algorithm) error
+}
+
+func NewVerifier(r *http.Request) (Verifier, error) {
+	return newVerifier(r.Header, func(h http.Header, toInclude []string) (string, error) {
+		return signatureString(h, toInclude, addRequestTarget(r))
+	})
+}
+
+func NewResponseVerifier(r *http.Response) (Verifier, error) {
+	return newVerifier(r.Header, func(h http.Header, toInclude []string) (string, error) {
+		return signatureString(h, toInclude, requestTargetNotPermitted)
+	})
+}
 
 func newSigner(algo Algorithm, headers []string, scheme SignatureScheme) (Signer, error) {
 	s, err := signerFromString(string(algo))

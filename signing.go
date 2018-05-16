@@ -36,6 +36,8 @@ const (
 
 var defaultHeaders = []string{dateHeader}
 
+var _ Signer = &macSigner{}
+
 type macSigner struct {
 	m            macer
 	headers      []string
@@ -88,6 +90,8 @@ func (m *macSigner) signatureString(r *http.Request) (string, error) {
 func (m *macSigner) signatureStringResponse(r http.ResponseWriter) (string, error) {
 	return signatureString(r.Header(), m.headers, requestTargetNotPermitted)
 }
+
+var _ Signer = &asymmSigner{}
 
 type asymmSigner struct {
 	s            signer
@@ -150,7 +154,8 @@ func setSignatureHeader(h http.Header, targetHeader, pubKeyId, algo, enc string,
 	b.WriteString(pubKeyId)
 	b.WriteString(parameterValueDelimiter)
 	b.WriteString(parameterSeparater)
-	// Algorithm
+	// Algorithm (deprecated)
+	// TODO: Remove this.
 	b.WriteString(algorithmParameter)
 	b.WriteString(parameterKVSeparater)
 	b.WriteString(parameterValueDelimiter)

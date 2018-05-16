@@ -107,7 +107,7 @@ func isForbiddenHash(h crypto.Hash) bool {
 // signer is an internally public type.
 type signer interface {
 	Sign(rand io.Reader, p crypto.PrivateKey, sig []byte) ([]byte, error)
-	Verify(pub crypto.PublicKey, signature []byte) error
+	Verify(pub crypto.PublicKey, toHash, signature []byte) error
 	String() string
 }
 
@@ -182,11 +182,14 @@ func (r *rsaAlgorithm) Sign(rand io.Reader, p crypto.PrivateKey, sig []byte) ([]
 	return rsa.SignPKCS1v15(rand, rsaK, r.kind, r.Sum(nil))
 }
 
-func (r *rsaAlgorithm) Verify(pub crypto.PublicKey, signature []byte) error {
+func (r *rsaAlgorithm) Verify(pub crypto.PublicKey, toHash, signature []byte) error {
 	defer r.Reset()
 	rsaK, ok := pub.(*rsa.PublicKey)
 	if !ok {
 		return errors.New("crypto.PublicKey is not *rsa.PublicKey")
+	}
+	if err := r.setSig(toHash); err != nil {
+		return err
 	}
 	return rsa.VerifyPKCS1v15(rsaK, r.kind, r.Sum(nil), signature)
 }
