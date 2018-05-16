@@ -45,13 +45,13 @@ type server struct {
 	mu *sync.Mutex
 }
 
-func handlerFunc(w http.ResponseWriter, r *http.Request) {
+func (s *server) handlerFunc(w http.ResponseWriter, r *http.Request) {
 	privateKey := ...
 	pubKeyId := ...
 	// Set headers and such on w
-	mu.Lock()
-	defer mu.Unlock()
-	err := signer.SignResponse(privateKey, pubKeyId, w)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	err := s.signer.SignResponse(privateKey, pubKeyId, w)
 	if err != nil {
 		...
 	}
@@ -80,31 +80,6 @@ func verify(r *http.Request) error {
 }
 ```
 
-`Verifier`s are not safe for concurrent use by goroutines, so be sure to guard
-access:
-
-```
-type server struct {
-	verifier httpsig.Verifier
-	mu *sync.Mutex
-}
-
-func handlerFunc(w http.ResponseWriter, r *http.Request) {
-	verifier, err := httpsig.NewVerifier(r)
-	if err != nil {
-		...
-	}
-	pubKeyId := verifier.KeyId()
-	algo := ...
-	pubKey := ...
-	mu.Lock()
-	defer mu.Unlock()
-	err := verifier.Verify(pubKey, algo)
-	if err != nil {
-		// Verification failed
-		...
-	}
-	// Verification passed
-	...
-}
-```
+`Verifier`s are not safe for concurrent use by goroutines, but since they are
+constructed on a per-request or per-response basis it should not be a common
+restriction.
