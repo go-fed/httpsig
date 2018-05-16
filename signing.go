@@ -21,9 +21,8 @@ const (
 	parameterValueDelimiter   = "\""
 	parameterSeparater        = ","
 	headerParameterValueDelim = " "
-
 	// RequestTarget specifies to include the http request method and
-	// URI path in the signature.
+	// URI path in the signature. Pass it as a header to NewSigner.
 	RequestTarget = "(request-target)"
 	dateHeader    = "date"
 

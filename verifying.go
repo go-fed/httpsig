@@ -121,8 +121,7 @@ func getSignatureComponents(s string) (kId, sig string, headers []string, err er
 		case signatureParameter:
 			sig = v
 		default:
-			err = fmt.Errorf("unrecognized http signature parameter %q", k)
-			return
+			// Ignore unrecognized parameters
 		}
 	}
 	if len(kId) == 0 {
