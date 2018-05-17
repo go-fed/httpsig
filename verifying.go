@@ -2,6 +2,7 @@ package httpsig
 
 import (
 	"crypto"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strings"
@@ -56,11 +57,15 @@ func (v *verifier) macVerify(m macer, pKey crypto.PublicKey) error {
 	if !ok {
 		return fmt.Errorf("public key for MAC verifying must be of type []byte")
 	}
-	actualMAC, err := v.sigStringFn(v.header, v.headers)
+	signature, err := v.sigStringFn(v.header, v.headers)
 	if err != nil {
 		return err
 	}
-	ok, err = m.Equal([]byte(v.signature), []byte(actualMAC), key)
+	actualMAC, err := base64.StdEncoding.DecodeString(v.signature)
+	if err != nil {
+		return err
+	}
+	ok, err = m.Equal([]byte(signature), actualMAC, key)
 	if err != nil {
 		return err
 	} else if !ok {
@@ -74,7 +79,11 @@ func (v *verifier) asymmVerify(s signer, pKey crypto.PublicKey) error {
 	if err != nil {
 		return err
 	}
-	err = s.Verify(pKey, []byte(toHash), []byte(v.signature))
+	signature, err := base64.StdEncoding.DecodeString(v.signature)
+	if err != nil {
+		return err
+	}
+	err = s.Verify(pKey, []byte(toHash), signature)
 	if err != nil {
 		return err
 	}
@@ -104,9 +113,9 @@ func getSignatureScheme(h http.Header) (string, error) {
 func getSignatureComponents(s string) (kId, sig string, headers []string, err error) {
 	params := strings.Split(s, parameterSeparater)
 	for _, p := range params {
-		kv := strings.Split(p, parameterKVSeparater)
+		kv := strings.SplitN(p, parameterKVSeparater, 2)
 		if len(kv) != 2 {
-			err = fmt.Errorf("malformed http signature parameter: %q", p)
+			err = fmt.Errorf("malformed http signature parameter: %v", kv)
 			return
 		}
 		k := kv[0]

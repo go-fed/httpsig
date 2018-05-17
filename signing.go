@@ -165,7 +165,12 @@ func setSignatureHeader(h http.Header, targetHeader, pubKeyId, algo, enc string,
 	b.WriteString(headersParameter)
 	b.WriteString(parameterKVSeparater)
 	b.WriteString(parameterValueDelimiter)
-	b.WriteString(strings.Join(headers, headerParameterValueDelim))
+	for i, h := range headers {
+		b.WriteString(strings.ToLower(h))
+		if i != len(headers)-1 {
+			b.WriteString(headerParameterValueDelim)
+		}
+	}
 	b.WriteString(parameterValueDelimiter)
 	b.WriteString(parameterSeparater)
 	// Signature

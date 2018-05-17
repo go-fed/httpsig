@@ -113,12 +113,10 @@ type Signer interface {
 // Algorithm is provided.
 func NewSigner(prefs []Algorithm, headers []string, scheme SignatureScheme) (Signer, Algorithm, error) {
 	for _, pref := range prefs {
-		if ok, err := isAvailable(string(pref)); err != nil {
-			return nil, "", err
-		} else if !ok {
+		s, err := newSigner(pref, headers, scheme)
+		if err != nil {
 			continue
 		}
-		s, err := newSigner(pref, headers, scheme)
 		return s, pref, err
 	}
 	s, err := newSigner(defaultAlgorithm, headers, scheme)
