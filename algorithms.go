@@ -81,10 +81,22 @@ var hashToDef = map[crypto.Hash]struct {
 
 var stringToHash map[string]crypto.Hash
 
+const (
+	defaultAlgorithm        = RSA_SHA256
+	defaultAlgorithmHashing = sha256String
+)
+
 func init() {
-	stringToHash := make(map[string]crypto.Hash, len(hashToDef))
+	stringToHash = make(map[string]crypto.Hash, len(hashToDef))
 	for k, v := range hashToDef {
 		stringToHash[v.name] = k
+	}
+	// This should guarantee that at runtime the defaultAlgorithm will not
+	// result in errors when fetching a macer or signer (see algorithms.go)
+	if ok, err := isAvailable(string(defaultAlgorithmHashing)); err != nil {
+		panic(err)
+	} else if !ok {
+		panic(fmt.Sprintf("the default httpsig algorithm is unavailable: %q", defaultAlgorithm))
 	}
 }
 
@@ -207,6 +219,9 @@ type blakeMacAlgorithm struct {
 
 func (r *blakeMacAlgorithm) Sign(sig, key []byte) ([]byte, error) {
 	hs, err := r.fn(key)
+	if err != nil {
+		return nil, err
+	}
 	if err = setSig(hs, sig); err != nil {
 		return nil, err
 	}

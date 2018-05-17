@@ -18,20 +18,6 @@ import (
 type Algorithm string
 
 const (
-	defaultAlgorithm = RSA_SHA256
-)
-
-func init() {
-	// This should guarantee that at runtime the defaultAlgorithm will not
-	// result in errors when fetching a macer or signer (see algorithms.go)
-	if ok, err := isAvailable(string(defaultAlgorithm)); err != nil {
-		panic(err)
-	} else if !ok {
-		panic(fmt.Sprintf("the default httpsig algorithm is unavailable: %q", defaultAlgorithm))
-	}
-}
-
-const (
 	// MAC-based algoirthms.
 	HMAC_SHA224      Algorithm = hmacPrefix + "-" + sha224String
 	HMAC_SHA256      Algorithm = hmacPrefix + "-" + sha256String
@@ -55,20 +41,22 @@ const (
 	// RSA-based algorithms.
 	RSA_SHA224 Algorithm = rsaPrefix + "-" + sha224String
 	// RSA_SHA256 is the default algorithm.
-	RSA_SHA256      Algorithm = rsaPrefix + "-" + sha256String
-	RSA_SHA384      Algorithm = rsaPrefix + "-" + sha384String
-	RSA_SHA512      Algorithm = rsaPrefix + "-" + sha512String
-	RSA_RIPEMD160   Algorithm = rsaPrefix + "-" + ripemd160String
-	RSA_SHA3_224    Algorithm = rsaPrefix + "-" + sha3_224String
-	RSA_SHA3_256    Algorithm = rsaPrefix + "-" + sha3_256String
-	RSA_SHA3_384    Algorithm = rsaPrefix + "-" + sha3_384String
-	RSA_SHA3_512    Algorithm = rsaPrefix + "-" + sha3_512String
-	RSA_SHA512_224  Algorithm = rsaPrefix + "-" + sha512_224String
-	RSA_SHA512_256  Algorithm = rsaPrefix + "-" + sha512_256String
-	RSA_BLAKE2S_256 Algorithm = rsaPrefix + "-" + blake2s_256String
-	RSA_BLAKE2B_256 Algorithm = rsaPrefix + "-" + blake2b_256String
-	RSA_BLAKE2B_384 Algorithm = rsaPrefix + "-" + blake2b_384String
-	RSA_BLAKE2B_512 Algorithm = rsaPrefix + "-" + blake2b_512String
+	RSA_SHA256    Algorithm = rsaPrefix + "-" + sha256String
+	RSA_SHA384    Algorithm = rsaPrefix + "-" + sha384String
+	RSA_SHA512    Algorithm = rsaPrefix + "-" + sha512String
+	RSA_RIPEMD160 Algorithm = rsaPrefix + "-" + ripemd160String
+	// Just because you can glue things together, doesn't mean they will
+	// work. The following options are not supported.
+	rsa_SHA3_224    Algorithm = rsaPrefix + "-" + sha3_224String
+	rsa_SHA3_256    Algorithm = rsaPrefix + "-" + sha3_256String
+	rsa_SHA3_384    Algorithm = rsaPrefix + "-" + sha3_384String
+	rsa_SHA3_512    Algorithm = rsaPrefix + "-" + sha3_512String
+	rsa_SHA512_224  Algorithm = rsaPrefix + "-" + sha512_224String
+	rsa_SHA512_256  Algorithm = rsaPrefix + "-" + sha512_256String
+	rsa_BLAKE2S_256 Algorithm = rsaPrefix + "-" + blake2s_256String
+	rsa_BLAKE2B_256 Algorithm = rsaPrefix + "-" + blake2b_256String
+	rsa_BLAKE2B_384 Algorithm = rsaPrefix + "-" + blake2b_384String
+	rsa_BLAKE2B_512 Algorithm = rsaPrefix + "-" + blake2b_512String
 )
 
 // HTTP Signatures can be applied to different HTTP headers, depending on the
