@@ -150,7 +150,7 @@ func TestIsAvailable(t *testing.T) {
 		got, err := isAvailable(test.algo)
 		gotErr := err != nil
 		if got != test.expected {
-			t.Fatalf("%q: got %s, want %s", test.name, got, test.expected)
+			t.Fatalf("%q: got %v, want %v", test.name, got, test.expected)
 		} else if gotErr != test.expectError {
 			if test.expectError {
 				t.Fatalf("%q: expected error, got: %s", test.name, err)
