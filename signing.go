@@ -189,12 +189,12 @@ func setSignatureHeader(h http.Header, targetHeader, prefix, pubKeyId, algo, enc
 	h.Add(targetHeader, b.String())
 }
 
-func requestTargetNotPermitted(b bytes.Buffer) error {
+func requestTargetNotPermitted(b *bytes.Buffer) error {
 	return fmt.Errorf("cannot sign with %q on anything other than an http request", RequestTarget)
 }
 
-func addRequestTarget(r *http.Request) func(b bytes.Buffer) error {
-	return func(b bytes.Buffer) error {
+func addRequestTarget(r *http.Request) func(b *bytes.Buffer) error {
+	return func(b *bytes.Buffer) error {
 		b.WriteString(RequestTarget)
 		b.WriteString(headerFieldDelimiter)
 		b.WriteString(strings.ToLower(r.Method))
@@ -204,7 +204,7 @@ func addRequestTarget(r *http.Request) func(b bytes.Buffer) error {
 	}
 }
 
-func signatureString(values http.Header, include []string, requestTargetFn func(b bytes.Buffer) error) (string, error) {
+func signatureString(values http.Header, include []string, requestTargetFn func(b *bytes.Buffer) error) (string, error) {
 	if len(include) == 0 {
 		include = defaultHeaders
 	}
@@ -212,7 +212,7 @@ func signatureString(values http.Header, include []string, requestTargetFn func(
 	for n, i := range include {
 		i := strings.ToLower(i)
 		if i == RequestTarget {
-			err := requestTargetFn(b)
+			err := requestTargetFn(&b)
 			if err != nil {
 				return "", err
 			}
