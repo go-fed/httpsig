@@ -19,11 +19,11 @@ type verifier struct {
 }
 
 func newVerifier(h http.Header, sigStringFn func(http.Header, []string) (string, error)) (*verifier, error) {
-	s, err := getSignatureScheme(h)
+	scheme, s, err := getSignatureScheme(h)
 	if err != nil {
 		return nil, err
 	}
-	kId, sig, headers, err := getSignatureComponents(s)
+	kId, sig, headers, err := getSignatureComponents(scheme, s)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (v *verifier) asymmVerify(s signer, pKey crypto.PublicKey) error {
 	return nil
 }
 
-func getSignatureScheme(h http.Header) (string, error) {
+func getSignatureScheme(h http.Header) (scheme SignatureScheme, val string, err error) {
 	s := h.Get(string(Signature))
 	sigHasAll := strings.Contains(s, keyIdParameter) ||
 		strings.Contains(s, headersParameter) ||
@@ -100,17 +100,26 @@ func getSignatureScheme(h http.Header) (string, error) {
 		strings.Contains(a, headersParameter) ||
 		strings.Contains(a, signatureParameter)
 	if sigHasAll && authHasAll {
-		return "", fmt.Errorf("both %q and %q have signature parameters", Signature, Authorization)
+		err = fmt.Errorf("both %q and %q have signature parameters", Signature, Authorization)
+		return
 	} else if !sigHasAll && !authHasAll {
-		return "", fmt.Errorf("neither %q nor %q have signature parameters", Signature, Authorization)
+		err = fmt.Errorf("neither %q nor %q have signature parameters", Signature, Authorization)
+		return
 	} else if sigHasAll {
-		return s, nil
+		val = s
+		scheme = Signature
+		return
 	} else { // authHasAll
-		return a, nil
+		val = a
+		scheme = Authorization
+		return
 	}
 }
 
-func getSignatureComponents(s string) (kId, sig string, headers []string, err error) {
+func getSignatureComponents(scheme SignatureScheme, s string) (kId, sig string, headers []string, err error) {
+	if as := scheme.authScheme(); len(as) > 0 {
+		s = strings.TrimPrefix(s, as+prefixSeparater)
+	}
 	params := strings.Split(s, parameterSeparater)
 	for _, p := range params {
 		kv := strings.SplitN(p, parameterKVSeparater, 2)

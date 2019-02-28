@@ -72,6 +72,25 @@ const (
 	Authorization SignatureScheme = "Authorization"
 )
 
+const (
+	// The HTTP Signatures specification uses the "Signature" auth-scheme
+	// for the Authorization header. This is coincidentally named, but not
+	// semantically the same, as the "Signature" HTTP header value.
+	signatureAuthScheme = "Signature"
+)
+
+// There are subtle differences to the values in the header. The Authorization
+// header has an 'auth-scheme' value that must be prefixed to the rest of the
+// key and values.
+func (s SignatureScheme) authScheme() string {
+	switch s {
+	case Authorization:
+		return signatureAuthScheme
+	default:
+		return ""
+	}
+}
+
 // Signers will sign HTTP requests or responses based on the algorithms and
 // headers selected at creation time.
 //
@@ -175,6 +194,7 @@ func newSigner(algo Algorithm, headers []string, scheme SignatureScheme) (Signer
 			s:            s,
 			headers:      headers,
 			targetHeader: scheme,
+			prefix:       scheme.authScheme(),
 		}
 		return a, nil
 	}

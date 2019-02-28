@@ -17,6 +17,7 @@ const (
 	algorithmParameter        = "algorithm"
 	headersParameter          = "headers"
 	signatureParameter        = "signature"
+	prefixSeparater           = " "
 	parameterKVSeparater      = "="
 	parameterValueDelimiter   = "\""
 	parameterSeparater        = ","
@@ -41,6 +42,7 @@ type macSigner struct {
 	m            macer
 	headers      []string
 	targetHeader SignatureScheme
+	prefix       string
 }
 
 func (m *macSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *http.Request) error {
@@ -52,7 +54,7 @@ func (m *macSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *http
 	if err != nil {
 		return err
 	}
-	setSignatureHeader(r.Header, string(m.targetHeader), pubKeyId, m.m.String(), enc, m.headers)
+	setSignatureHeader(r.Header, string(m.targetHeader), m.prefix, pubKeyId, m.m.String(), enc, m.headers)
 	return nil
 }
 
@@ -65,7 +67,7 @@ func (m *macSigner) SignResponse(pKey crypto.PrivateKey, pubKeyId string, r http
 	if err != nil {
 		return err
 	}
-	setSignatureHeader(r.Header(), string(m.targetHeader), pubKeyId, m.m.String(), enc, m.headers)
+	setSignatureHeader(r.Header(), string(m.targetHeader), m.prefix, pubKeyId, m.m.String(), enc, m.headers)
 	return nil
 }
 
@@ -96,6 +98,7 @@ type asymmSigner struct {
 	s            signer
 	headers      []string
 	targetHeader SignatureScheme
+	prefix       string
 }
 
 func (a *asymmSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *http.Request) error {
@@ -107,7 +110,7 @@ func (a *asymmSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *ht
 	if err != nil {
 		return err
 	}
-	setSignatureHeader(r.Header, string(a.targetHeader), pubKeyId, a.s.String(), enc, a.headers)
+	setSignatureHeader(r.Header, string(a.targetHeader), a.prefix, pubKeyId, a.s.String(), enc, a.headers)
 	return nil
 }
 
@@ -120,7 +123,7 @@ func (a *asymmSigner) SignResponse(pKey crypto.PrivateKey, pubKeyId string, r ht
 	if err != nil {
 		return err
 	}
-	setSignatureHeader(r.Header(), string(a.targetHeader), pubKeyId, a.s.String(), enc, a.headers)
+	setSignatureHeader(r.Header(), string(a.targetHeader), a.prefix, pubKeyId, a.s.String(), enc, a.headers)
 	return nil
 }
 
@@ -141,12 +144,16 @@ func (a *asymmSigner) signatureStringResponse(r http.ResponseWriter) (string, er
 	return signatureString(r.Header(), a.headers, requestTargetNotPermitted)
 }
 
-func setSignatureHeader(h http.Header, targetHeader, pubKeyId, algo, enc string, headers []string) {
+func setSignatureHeader(h http.Header, targetHeader, prefix, pubKeyId, algo, enc string, headers []string) {
 	if len(headers) == 0 {
 		headers = defaultHeaders
 	}
 	var b bytes.Buffer
 	// KeyId
+	b.WriteString(prefix)
+	if len(prefix) > 0 {
+		b.WriteString(prefixSeparater)
+	}
 	b.WriteString(keyIdParameter)
 	b.WriteString(parameterKVSeparater)
 	b.WriteString(parameterValueDelimiter)
