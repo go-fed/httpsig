@@ -206,6 +206,7 @@ func newSigner(algo Algorithm, headers []string, scheme SignatureScheme) (Signer
 		m:            m,
 		headers:      headers,
 		targetHeader: scheme,
+		prefix:       scheme.authScheme(),
 	}
 	return c, nil
 }
