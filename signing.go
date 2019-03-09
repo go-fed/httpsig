@@ -199,7 +199,7 @@ func addRequestTarget(r *http.Request) func(b *bytes.Buffer) error {
 		b.WriteString(headerFieldDelimiter)
 		b.WriteString(strings.ToLower(r.Method))
 		b.WriteString(requestTargetSeparator)
-		b.WriteString(r.URL.String())
+		b.WriteString(r.URL.Path)
 		return nil
 	}
 }
