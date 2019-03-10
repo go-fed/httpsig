@@ -1,12 +1,19 @@
 package httpsig
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -33,9 +40,11 @@ type httpsigTest struct {
 }
 
 var (
-	privKey *rsa.PrivateKey
-	macKey  []byte
-	tests   []httpsigTest
+	privKey               *rsa.PrivateKey
+	macKey                []byte
+	tests                 []httpsigTest
+	testSpecRSAPrivateKey *rsa.PrivateKey
+	testSpecRSAPublicKey  *rsa.PublicKey
 )
 
 func init() {
@@ -132,6 +141,15 @@ func init() {
 		},
 	}
 
+	testSpecRSAPrivateKey, err = loadPrivateKey([]byte(testSpecPrivateKeyPEM))
+	if err != nil {
+		panic(err)
+	}
+
+	testSpecRSAPublicKey, err = loadPublicKey([]byte(testSpecPublicKeyPEM))
+	if err != nil {
+		panic(err)
+	}
 }
 
 func toSignatureParameter(k, v string) string {
@@ -398,3 +416,136 @@ func TestNewResponseVerifier(t *testing.T) {
 		})
 	}
 }
+
+// Test_Signing_HTTP_Messages_AppendixC these tests implement Appendix C from the http signatures specification https://tools.ietf.org/html/draft-cavage-http-signatures-10#appendix-C
+func Test_Signing_HTTP_Messages_AppendixC(t *testing.T) {
+	specTests := []struct {
+		name              string
+		headers           []string
+		expectedSignature string
+		setHeaders        func(r *http.Request)
+	}{
+		{
+			name:              "C.1.  Default Test",
+			headers:           []string{},
+			expectedSignature: `Authorization: Signature keyId="Test",algorithm="rsa-sha256",signature="SjWJWbWN7i0wzBvtPl8rbASWz5xQW6mcJmn+ibttBqtifLN7Sazz6m79cNfwwb8DMJ5cou1s7uEGKKCs+FLEEaDV5lp7q25WqS+lavg7T8hc0GppauB6hbgEKTwblDHYGEtbGmtdHgVCk9SuS13F0hZ8FD0k/5OxEPXe5WozsbM="`,
+			setHeaders:        func(r *http.Request) {},
+		},
+		{
+			name:              "C.2.  Basic Test",
+			headers:           []string{"(request-target)", "host", "date"},
+			expectedSignature: `Authorization: Signature keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date",signature="qdx+H7PHHDZgy4y/Ahn9Tny9V3GP6YgBPyUXMmoxWtLbHpUnXS2mg2+SbrQDMCJypxBLSPQR2aAjn7ndmw2iicw3HMbe8VfEdKFYRqzic+efkb3nndiv/x1xSHDJWeSWkx3ButlYSuBskLu6kd9Fswtemr3lgdDEmn04swr2Os0="`,
+			setHeaders:        func(r *http.Request) {},
+		},
+		{
+			name:              "C.3.  All Headers Test",
+			headers:           []string{"(request-target)", "host", "date", "content-type", "digest", "content-length"},
+			expectedSignature: `Authorization: Signature keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date content-type digest content-length",signature="vSdrb+dS3EceC9bcwHSo4MlyKS59iFIrhgYkz8+oVLEEzmYZZvRs8rgOp+63LEM3v+MFHB32NfpB2bEKBIvB1q52LaEUHFv120V01IL+TAD48XaERZFukWgHoBTLMhYS2Gb51gWxpeIq8knRmPnYePbF5MOkR0Zkly4zKH7s1dE="`,
+			setHeaders:        func(r *http.Request) {},
+		},
+	}
+
+	for _, test := range specTests {
+		t.Run(test.name, func(t *testing.T) {
+			test := test
+			r, err := http.NewRequest("POST", "http://example.com/foo?param=value&pet=dog", bytes.NewBuffer([]byte(testSpecBody)))
+			if err != nil {
+				t.Fatalf("error creating request: %s", err)
+			}
+
+			r.Header["Date"] = []string{testSpecDate}
+			r.Header["Host"] = []string{r.URL.Host}
+			r.Header["Content-Length"] = []string{strconv.Itoa(len(testSpecBody))}
+			r.Header["Content-Type"] = []string{"application/json"}
+			setDigest(r)
+
+			s, _, err := NewSigner([]Algorithm{RSA_SHA256}, test.headers, Authorization)
+			if err != nil {
+				t.Fatalf("error creating signer: %s", err)
+			}
+
+			if err := s.SignRequest(testSpecRSAPrivateKey, "Test", r); err != nil {
+				t.Fatalf("error signing request: %s", err)
+			}
+
+			expectedAuth := test.expectedSignature
+			gotAuth := fmt.Sprintf("Authorization: %s", r.Header["Authorization"][0])
+			if gotAuth != expectedAuth {
+				t.Errorf("%s\nGot: %s\nWant:%s", test.name, gotAuth, expectedAuth)
+			}
+		})
+	}
+}
+
+func loadPrivateKey(keyData []byte) (*rsa.PrivateKey, error) {
+	pem, _ := pem.Decode(keyData)
+	if pem.Type != "RSA PRIVATE KEY" {
+		return nil, fmt.Errorf("RSA private key is of the wrong type: %s", pem.Type)
+	}
+
+	return x509.ParsePKCS1PrivateKey(pem.Bytes)
+}
+
+func loadPublicKey(keyData []byte) (*rsa.PublicKey, error) {
+	pem, _ := pem.Decode(keyData)
+	if pem.Type != "PUBLIC KEY" {
+		return nil, fmt.Errorf("public key is of the wrong type: %s", pem.Type)
+	}
+
+	key, err := x509.ParsePKIXPublicKey(pem.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return key.(*rsa.PublicKey), nil
+}
+
+func setDigest(r *http.Request) ([]byte, error) {
+	var bodyBytes []byte
+	if _, ok := r.Header["Digest"]; !ok {
+		body := ""
+		if r.Body != nil {
+			var err error
+			bodyBytes, err = ioutil.ReadAll(r.Body)
+			if err != nil {
+				return nil, fmt.Errorf("error reading body. %v", err)
+			}
+
+			// And now set a new body, which will simulate the same data we read:
+			r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+			body = string(bodyBytes)
+		}
+
+		d := sha256.Sum256([]byte(body))
+		r.Header["Digest"] = []string{fmt.Sprintf("SHA-256=%s", base64.StdEncoding.EncodeToString(d[:]))}
+	}
+
+	return bodyBytes, nil
+}
+
+const testSpecBody = `{"hello": "world"}`
+
+const testSpecDate = `Sun, 05 Jan 2014 21:31:40 GMT`
+
+const testSpecPrivateKeyPEM = `-----BEGIN RSA PRIVATE KEY-----
+MIICXgIBAAKBgQDCFENGw33yGihy92pDjZQhl0C36rPJj+CvfSC8+q28hxA161QF
+NUd13wuCTUcq0Qd2qsBe/2hFyc2DCJJg0h1L78+6Z4UMR7EOcpfdUE9Hf3m/hs+F
+UR45uBJeDK1HSFHD8bHKD6kv8FPGfJTotc+2xjJwoYi+1hqp1fIekaxsyQIDAQAB
+AoGBAJR8ZkCUvx5kzv+utdl7T5MnordT1TvoXXJGXK7ZZ+UuvMNUCdN2QPc4sBiA
+QWvLw1cSKt5DsKZ8UETpYPy8pPYnnDEz2dDYiaew9+xEpubyeW2oH4Zx71wqBtOK
+kqwrXa/pzdpiucRRjk6vE6YY7EBBs/g7uanVpGibOVAEsqH1AkEA7DkjVH28WDUg
+f1nqvfn2Kj6CT7nIcE3jGJsZZ7zlZmBmHFDONMLUrXR/Zm3pR5m0tCmBqa5RK95u
+412jt1dPIwJBANJT3v8pnkth48bQo/fKel6uEYyboRtA5/uHuHkZ6FQF7OUkGogc
+mSJluOdc5t6hI1VsLn0QZEjQZMEOWr+wKSMCQQCC4kXJEsHAve77oP6HtG/IiEn7
+kpyUXRNvFsDE0czpJJBvL/aRFUJxuRK91jhjC68sA7NsKMGg5OXb5I5Jj36xAkEA
+gIT7aFOYBFwGgQAQkWNKLvySgKbAZRTeLBacpHMuQdl1DfdntvAyqpAZ0lY0RKmW
+G6aFKaqQfOXKCyWoUiVknQJAXrlgySFci/2ueKlIE1QqIiLSZ8V8OlpFLRnb1pzI
+7U1yQXnTAEFYM560yJlzUpOb1V4cScGd365tiSMvxLOvTA==
+-----END RSA PRIVATE KEY-----`
+
+const testSpecPublicKeyPEM = `-----BEGIN PUBLIC KEY-----
+MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDCFENGw33yGihy92pDjZQhl0C3
+6rPJj+CvfSC8+q28hxA161QFNUd13wuCTUcq0Qd2qsBe/2hFyc2DCJJg0h1L78+6
+Z4UMR7EOcpfdUE9Hf3m/hs+FUR45uBJeDK1HSFHD8bHKD6kv8FPGfJTotc+2xjJw
+oYi+1hqp1fIekaxsyQIDAQAB
+-----END PUBLIC KEY-----`
