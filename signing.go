@@ -106,6 +106,7 @@ func (a *asymmSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *ht
 	if err != nil {
 		return err
 	}
+
 	enc, err := a.signSignature(pKey, s)
 	if err != nil {
 		return err
@@ -200,6 +201,12 @@ func addRequestTarget(r *http.Request) func(b *bytes.Buffer) error {
 		b.WriteString(strings.ToLower(r.Method))
 		b.WriteString(requestTargetSeparator)
 		b.WriteString(r.URL.Path)
+
+		if r.URL.RawQuery != "" {
+			b.WriteString("?")
+			b.WriteString(r.URL.RawQuery)
+		}
+
 		return nil
 	}
 }
