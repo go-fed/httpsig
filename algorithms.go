@@ -258,6 +258,13 @@ func setSig(a hash.Hash, b []byte) error {
 	return nil
 }
 
+// IsSupportedHttpSigAlgorithm returns true if the string is supported by this
+// library, is not a hash known to be weak, and is supported by the hardware.
+func IsSupportedHttpSigAlgorithm(algo string) bool {
+	a, err := isAvailable(algo)
+	return a && err == nil
+}
+
 // isAvailable is an internally public function
 func isAvailable(algo string) (bool, error) {
 	c, ok := stringToHash[algo]
