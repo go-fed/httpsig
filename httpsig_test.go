@@ -417,31 +417,37 @@ func TestNewResponseVerifier(t *testing.T) {
 	}
 }
 
-// Test_Signing_HTTP_Messages_AppendixC these tests implement Appendix C from the http signatures specification https://tools.ietf.org/html/draft-cavage-http-signatures-10#appendix-C
+// Test_Signing_HTTP_Messages_AppendixC implement tests from Appendix C
+// in the http signatures specification:
+// https://tools.ietf.org/html/draft-cavage-http-signatures-10#appendix-C
 func Test_Signing_HTTP_Messages_AppendixC(t *testing.T) {
 	specTests := []struct {
 		name              string
 		headers           []string
 		expectedSignature string
-		setHeaders        func(r *http.Request)
 	}{
 		{
-			name:              "C.1.  Default Test",
-			headers:           []string{},
-			expectedSignature: `Authorization: Signature keyId="Test",algorithm="rsa-sha256",signature="SjWJWbWN7i0wzBvtPl8rbASWz5xQW6mcJmn+ibttBqtifLN7Sazz6m79cNfwwb8DMJ5cou1s7uEGKKCs+FLEEaDV5lp7q25WqS+lavg7T8hc0GppauB6hbgEKTwblDHYGEtbGmtdHgVCk9SuS13F0hZ8FD0k/5OxEPXe5WozsbM="`,
-			setHeaders:        func(r *http.Request) {},
+			name:    "C.1.  Default Test",
+			headers: []string{},
+			// NOTE: In the Appendix C tests, the following is NOT included:
+			//    `headers="date"`
+			// But httpsig will ALWAYS explicitly list the headers used in its
+			// signature. Hence, I have introduced it here.
+			//
+			// NOTE: In verification, if there are no headers listed, the
+			// default headers (date) are indeed used as required by the
+			// specification.
+			expectedSignature: `Authorization: Signature keyId="Test",algorithm="rsa-sha256",headers="date",signature="SjWJWbWN7i0wzBvtPl8rbASWz5xQW6mcJmn+ibttBqtifLN7Sazz6m79cNfwwb8DMJ5cou1s7uEGKKCs+FLEEaDV5lp7q25WqS+lavg7T8hc0GppauB6hbgEKTwblDHYGEtbGmtdHgVCk9SuS13F0hZ8FD0k/5OxEPXe5WozsbM="`,
 		},
 		{
 			name:              "C.2.  Basic Test",
 			headers:           []string{"(request-target)", "host", "date"},
 			expectedSignature: `Authorization: Signature keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date",signature="qdx+H7PHHDZgy4y/Ahn9Tny9V3GP6YgBPyUXMmoxWtLbHpUnXS2mg2+SbrQDMCJypxBLSPQR2aAjn7ndmw2iicw3HMbe8VfEdKFYRqzic+efkb3nndiv/x1xSHDJWeSWkx3ButlYSuBskLu6kd9Fswtemr3lgdDEmn04swr2Os0="`,
-			setHeaders:        func(r *http.Request) {},
 		},
 		{
 			name:              "C.3.  All Headers Test",
 			headers:           []string{"(request-target)", "host", "date", "content-type", "digest", "content-length"},
 			expectedSignature: `Authorization: Signature keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date content-type digest content-length",signature="vSdrb+dS3EceC9bcwHSo4MlyKS59iFIrhgYkz8+oVLEEzmYZZvRs8rgOp+63LEM3v+MFHB32NfpB2bEKBIvB1q52LaEUHFv120V01IL+TAD48XaERZFukWgHoBTLMhYS2Gb51gWxpeIq8knRmPnYePbF5MOkR0Zkly4zKH7s1dE="`,
-			setHeaders:        func(r *http.Request) {},
 		},
 	}
 
@@ -471,7 +477,63 @@ func Test_Signing_HTTP_Messages_AppendixC(t *testing.T) {
 			expectedAuth := test.expectedSignature
 			gotAuth := fmt.Sprintf("Authorization: %s", r.Header["Authorization"][0])
 			if gotAuth != expectedAuth {
-				t.Errorf("%s\nGot: %s\nWant:%s", test.name, gotAuth, expectedAuth)
+				t.Errorf("Signature string mismatch\nGot: %s\nWant: %s", gotAuth, expectedAuth)
+			}
+		})
+	}
+}
+
+// Test_Verifying_HTTP_Messages_AppendixC implement tests from Appendix C
+// in the http signatures specification:
+// https://tools.ietf.org/html/draft-cavage-http-signatures-10#appendix-C
+func Test_Verifying_HTTP_Messages_AppendixC(t *testing.T) {
+	specTests := []struct {
+		name      string
+		headers   []string
+		signature string
+	}{
+		{
+			name:      "C.1.  Default Test",
+			headers:   []string{},
+			signature: `Signature keyId="Test",algorithm="rsa-sha256",signature="SjWJWbWN7i0wzBvtPl8rbASWz5xQW6mcJmn+ibttBqtifLN7Sazz6m79cNfwwb8DMJ5cou1s7uEGKKCs+FLEEaDV5lp7q25WqS+lavg7T8hc0GppauB6hbgEKTwblDHYGEtbGmtdHgVCk9SuS13F0hZ8FD0k/5OxEPXe5WozsbM="`,
+		},
+		{
+			name:      "C.2.  Basic Test",
+			headers:   []string{"(request-target)", "host", "date"},
+			signature: `Signature keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date",signature="qdx+H7PHHDZgy4y/Ahn9Tny9V3GP6YgBPyUXMmoxWtLbHpUnXS2mg2+SbrQDMCJypxBLSPQR2aAjn7ndmw2iicw3HMbe8VfEdKFYRqzic+efkb3nndiv/x1xSHDJWeSWkx3ButlYSuBskLu6kd9Fswtemr3lgdDEmn04swr2Os0="`,
+		},
+		{
+			name:      "C.3.  All Headers Test",
+			headers:   []string{"(request-target)", "host", "date", "content-type", "digest", "content-length"},
+			signature: `Signature keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date content-type digest content-length",signature="vSdrb+dS3EceC9bcwHSo4MlyKS59iFIrhgYkz8+oVLEEzmYZZvRs8rgOp+63LEM3v+MFHB32NfpB2bEKBIvB1q52LaEUHFv120V01IL+TAD48XaERZFukWgHoBTLMhYS2Gb51gWxpeIq8knRmPnYePbF5MOkR0Zkly4zKH7s1dE="`,
+		},
+	}
+
+	for _, test := range specTests {
+		t.Run(test.name, func(t *testing.T) {
+			test := test
+			r, err := http.NewRequest("POST", "http://example.com/foo?param=value&pet=dog", bytes.NewBuffer([]byte(testSpecBody)))
+			if err != nil {
+				t.Fatalf("error creating request: %s", err)
+			}
+
+			r.Header["Date"] = []string{testSpecDate}
+			r.Header["Host"] = []string{r.URL.Host}
+			r.Header["Content-Length"] = []string{strconv.Itoa(len(testSpecBody))}
+			r.Header["Content-Type"] = []string{"application/json"}
+			setDigest(r)
+			r.Header["Authorization"] = []string{test.signature}
+
+			v, err := NewVerifier(r)
+			if err != nil {
+				t.Fatalf("error creating verifier: %s", err)
+			}
+
+			if "Test" != v.KeyId() {
+				t.Errorf("KeyId mismatch\nGot: %s\nWant: Test", v.KeyId())
+			}
+			if err := v.Verify(testSpecRSAPublicKey, RSA_SHA256); err != nil {
+				t.Errorf("Verification failure: %s", err)
 			}
 		})
 	}
