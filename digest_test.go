@@ -18,7 +18,7 @@ func TestAddDigest(t *testing.T) {
 		{
 			name: "adds sha256 digest",
 			r: func() *http.Request {
-				r, _ :=http.NewRequest("POST", "example.com", nil)
+				r, _ := http.NewRequest("POST", "example.com", nil)
 				return r
 			},
 			algo:           "SHA-256",
@@ -58,30 +58,33 @@ func TestAddDigest(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		req := test.r()
-		err := addDigest(req, test.algo, test.body)
-		gotErr := err != nil
-		if gotErr != test.expectError {
-			if test.expectError {
-				t.Fatalf("%q: expected error, got: %s", test.name, err)
-			} else {
-				t.Fatalf("%q: expected no error, got: %s", test.name, err)
+		t.Run(test.name, func(t *testing.T) {
+			test := test
+			req := test.r()
+			err := addDigest(req, test.algo, test.body)
+			gotErr := err != nil
+			if gotErr != test.expectError {
+				if test.expectError {
+					t.Fatalf("expected error, got: %s", err)
+				} else {
+					t.Fatalf("expected no error, got: %s", err)
+				}
+			} else if !gotErr {
+				d := req.Header.Get("Digest")
+				if d != test.expectedDigest {
+					t.Fatalf("unexpected digest: want %s, got %s", test.expectedDigest, d)
+				}
 			}
-		} else if !gotErr {
-			d := req.Header.Get("Digest")
-			if d != test.expectedDigest {
-				t.Fatalf("%q: unexpected digest: want %s, got %s", test.name, test.expectedDigest, d)
-			}
-		}
+		})
 	}
 }
 
 func TestVerifyDigest(t *testing.T) {
-	tests := []struct{
-		name           string
-		r              func() *http.Request
-		body           []byte
-		expectError    bool
+	tests := []struct {
+		name        string
+		r           func() *http.Request
+		body        []byte
+		expectError bool
 	}{
 		{
 			name: "verify sha256",
@@ -90,7 +93,7 @@ func TestVerifyDigest(t *testing.T) {
 				r.Header.Set("Digest", "SHA-256=am9obm55IGdyYWIgeW91ciBndW7jsMRCmPwcFJr79MiZb7kkJ65B5GSbk0yklZkbeFK4VQ==")
 				return r
 			},
-			body:           []byte("johnny grab your gun"),
+			body: []byte("johnny grab your gun"),
 		},
 		{
 			name: "verify sha512",
@@ -99,7 +102,7 @@ func TestVerifyDigest(t *testing.T) {
 				r.Header.Set("Digest", "SHA-512=eW91cnMgaXMgdGhlIGRyaWxsIHRoYXQgd2lsbCBwaWVyY2UgdGhlIGhlYXZlbnPPg+E1fu+4vfFUKFDWbYAH1iDkBQtXFdyD9Kkh02zpzkfQ0TxdhfKw/4MY0od+7C9juTG9R0F6gaU4Mnr5J9o+")
 				return r
 			},
-			body:           []byte("yours is the drill that will pierce the heavens"),
+			body: []byte("yours is the drill that will pierce the heavens"),
 		},
 		{
 			name: "no digest header",
@@ -107,7 +110,7 @@ func TestVerifyDigest(t *testing.T) {
 				r, _ := http.NewRequest("POST", "example.com", nil)
 				return r
 			},
-			body: []byte("Yuji's gender is blue"),
+			body:        []byte("Yuji's gender is blue"),
 			expectError: true,
 		},
 		{
@@ -117,7 +120,7 @@ func TestVerifyDigest(t *testing.T) {
 				r.Header.Set("Digest", "SHA-256am9obm55IGdyYWIgeW91ciBndW7jsMRCmPwcFJr79MiZb7kkJ65B5GSbk0yklZkbeFK4VQ==")
 				return r
 			},
-			body: []byte("Tochee and Ozzie BFFs forever"),
+			body:        []byte("Tochee and Ozzie BFFs forever"),
 			expectError: true,
 		},
 		{
@@ -127,7 +130,7 @@ func TestVerifyDigest(t *testing.T) {
 				r.Header.Set("Digest", "MD5=poo")
 				return r
 			},
-			body: []byte("what is a man? a miserable pile of secrets"),
+			body:        []byte("what is a man? a miserable pile of secrets"),
 			expectError: true,
 		},
 		{
@@ -137,21 +140,24 @@ func TestVerifyDigest(t *testing.T) {
 				r.Header.Set("Digest", "SHA-256=bm9obm55IGdyYWIgeW91ciBndW7jsMRCmPwcFJr79MiZb7kkJ65B5GSbk0yklZkbeFK4VQ==")
 				return r
 			},
-			body:           []byte("johnny grab your gun"),
+			body:        []byte("johnny grab your gun"),
 			expectError: true,
 		},
 	}
 	for _, test := range tests {
-		req := test.r()
-		buf := bytes.NewBuffer(test.body)
-		err := verifyDigest(req, buf)
-		gotErr := err != nil
-		if gotErr != test.expectError {
-			if test.expectError {
-				t.Fatalf("%q: expected error, got: %s", test.name, err)
-			} else {
-				t.Fatalf("%q: expected no error, got: %s", test.name, err)
+		t.Run(test.name, func(t *testing.T) {
+			test := test
+			req := test.r()
+			buf := bytes.NewBuffer(test.body)
+			err := verifyDigest(req, buf)
+			gotErr := err != nil
+			if gotErr != test.expectError {
+				if test.expectError {
+					t.Fatalf("expected error, got: %s", err)
+				} else {
+					t.Fatalf("expected no error, got: %s", err)
+				}
 			}
-		}
+		})
 	}
 }
