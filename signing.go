@@ -40,12 +40,20 @@ var _ Signer = &macSigner{}
 
 type macSigner struct {
 	m            macer
+	makeDigest   bool
+	dAlgo        DigestAlgorithm
 	headers      []string
 	targetHeader SignatureScheme
 	prefix       string
 }
 
-func (m *macSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *http.Request) error {
+func (m *macSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *http.Request, body []byte) error {
+	if body != nil {
+		err := addDigest(r, m.dAlgo, body)
+		if err != nil {
+			return err
+		}
+	}
 	s, err := m.signatureString(r)
 	if err != nil {
 		return err
@@ -58,7 +66,13 @@ func (m *macSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *http
 	return nil
 }
 
-func (m *macSigner) SignResponse(pKey crypto.PrivateKey, pubKeyId string, r http.ResponseWriter) error {
+func (m *macSigner) SignResponse(pKey crypto.PrivateKey, pubKeyId string, r http.ResponseWriter, body []byte) error {
+	if body != nil {
+		err := addDigestResponse(r, m.dAlgo, body)
+		if err != nil {
+			return err
+		}
+	}
 	s, err := m.signatureStringResponse(r)
 	if err != nil {
 		return err
@@ -96,17 +110,24 @@ var _ Signer = &asymmSigner{}
 
 type asymmSigner struct {
 	s            signer
+	makeDigest   bool
+	dAlgo        DigestAlgorithm
 	headers      []string
 	targetHeader SignatureScheme
 	prefix       string
 }
 
-func (a *asymmSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *http.Request) error {
+func (a *asymmSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *http.Request, body []byte) error {
+	if body != nil {
+		err := addDigest(r, a.dAlgo, body)
+		if err != nil {
+			return err
+		}
+	}
 	s, err := a.signatureString(r)
 	if err != nil {
 		return err
 	}
-
 	enc, err := a.signSignature(pKey, s)
 	if err != nil {
 		return err
@@ -115,7 +136,13 @@ func (a *asymmSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *ht
 	return nil
 }
 
-func (a *asymmSigner) SignResponse(pKey crypto.PrivateKey, pubKeyId string, r http.ResponseWriter) error {
+func (a *asymmSigner) SignResponse(pKey crypto.PrivateKey, pubKeyId string, r http.ResponseWriter, body []byte) error {
+	if body != nil {
+		err := addDigestResponse(r, a.dAlgo, body)
+		if err != nil {
+			return err
+		}
+	}
 	s, err := a.signatureStringResponse(r)
 	if err != nil {
 		return err

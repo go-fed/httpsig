@@ -107,7 +107,14 @@ type Signer interface {
 	// is expected to be of type []byte. If the Signer was created using an
 	// RSA based algorithm, then the private key is expected to be of type
 	// *rsa.PrivateKey.
-	SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *http.Request) error
+	//
+	// A Digest (RFC 3230) will be added to the request. The body provided
+	// must match the body used in the request, and is allowed to be nil.
+	// The Digest ensures the request body is not tampered with in flight,
+	// and if the signer is created to also sign the "Digest" header, the
+	// HTTP Signature will then ensure both the Digest and body are not both
+	// modified to maliciously represent different content.
+	SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *http.Request, body []byte) error
 	// SignResponse signs the response using a private key. The public key
 	// id is used by the HTTP client to identify which key to use to verify
 	// the signature.
@@ -116,7 +123,14 @@ type Signer interface {
 	// is expected to be of type []byte. If the Signer was created using an
 	// RSA based algorithm, then the private key is expected to be of type
 	// *rsa.PrivateKey.
-	SignResponse(pKey crypto.PrivateKey, pubKeyId string, r http.ResponseWriter) error
+	//
+	// A Digest (RFC 3230) will be added to the response. The body provided
+	// must match the body written in the response, and is allowed to be
+	// nil. The Digest ensures the response body is not tampered with in
+	// flight, and if the signer is created to also sign the "Digest"
+	// header, the HTTP Signature will then ensure both the Digest and body
+	// are not both modified to maliciously represent different content.
+	SignResponse(pKey crypto.PrivateKey, pubKeyId string, r http.ResponseWriter, body []byte) error
 }
 
 // NewSigner creates a new Signer with the provided algorithm preferences to
@@ -125,20 +139,23 @@ type Signer interface {
 // algorithms were available, then the default algorithm is used. The headers
 // specified will be included into the HTTP signatures.
 //
+// The Digest will also be calculated on a request's body using the provided
+// digest algorithm, if "Digest" is one of the headers listed.
+//
 // The provided scheme determines which header is populated with the HTTP
 // Signature.
 //
 // An error is returned if an unknown or a known cryptographically insecure
 // Algorithm is provided.
-func NewSigner(prefs []Algorithm, headers []string, scheme SignatureScheme) (Signer, Algorithm, error) {
+func NewSigner(prefs []Algorithm, dAlgo DigestAlgorithm, headers []string, scheme SignatureScheme) (Signer, Algorithm, error) {
 	for _, pref := range prefs {
-		s, err := newSigner(pref, headers, scheme)
+		s, err := newSigner(pref, dAlgo, headers, scheme)
 		if err != nil {
 			continue
 		}
 		return s, pref, err
 	}
-	s, err := newSigner(defaultAlgorithm, headers, scheme)
+	s, err := newSigner(defaultAlgorithm, dAlgo, headers, scheme)
 	return s, defaultAlgorithm, err
 }
 
@@ -187,11 +204,12 @@ func NewResponseVerifier(r *http.Response) (Verifier, error) {
 	})
 }
 
-func newSigner(algo Algorithm, headers []string, scheme SignatureScheme) (Signer, error) {
+func newSigner(algo Algorithm, dAlgo DigestAlgorithm, headers []string, scheme SignatureScheme) (Signer, error) {
 	s, err := signerFromString(string(algo))
 	if err == nil {
 		a := &asymmSigner{
 			s:            s,
+			dAlgo:        dAlgo,
 			headers:      headers,
 			targetHeader: scheme,
 			prefix:       scheme.authScheme(),
@@ -204,6 +222,7 @@ func newSigner(algo Algorithm, headers []string, scheme SignatureScheme) (Signer
 	}
 	c := &macSigner{
 		m:            m,
+		dAlgo:        dAlgo,
 		headers:      headers,
 		targetHeader: scheme,
 		prefix:       scheme.authScheme(),

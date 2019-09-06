@@ -62,6 +62,27 @@ func addDigest(r *http.Request, algo DigestAlgorithm, b []byte) (err error) {
 	return
 }
 
+func addDigestResponse(r http.ResponseWriter, algo DigestAlgorithm, b []byte) (err error) {
+	_, ok := r.Header()[digestHeader]
+	if ok {
+		err = fmt.Errorf("cannot add Digest: Digest is already set")
+		return
+	}
+	var h hash.Hash
+	var a DigestAlgorithm
+	h, a, err = getHash(algo)
+	if err != nil {
+		return
+	}
+	sum := h.Sum(b)
+	r.Header().Add(digestHeader,
+		fmt.Sprintf("%s%s%s",
+			a,
+			digestDelim,
+			base64.StdEncoding.EncodeToString(sum[:])))
+	return
+}
+
 func verifyDigest(r *http.Request, body *bytes.Buffer) (err error) {
 	d := r.Header.Get(digestHeader)
 	if len(d) == 0 {

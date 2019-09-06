@@ -29,7 +29,9 @@ const (
 type httpsigTest struct {
 	name                       string
 	prefs                      []Algorithm
+	digestAlg                  DigestAlgorithm
 	headers                    []string
+	body                       []byte
 	scheme                     SignatureScheme
 	privKey                    crypto.PrivateKey
 	pubKey                     crypto.PublicKey
@@ -37,6 +39,7 @@ type httpsigTest struct {
 	expectedAlgorithm          Algorithm
 	expectErrorSigningResponse bool
 	expectRequestPath          bool
+	expectedDigest             string
 }
 
 var (
@@ -62,6 +65,7 @@ func init() {
 		{
 			name:              "rsa signature",
 			prefs:             []Algorithm{RSA_SHA512},
+			digestAlg:         DigestSha256,
 			headers:           []string{"Date", "Digest"},
 			scheme:            Signature,
 			privKey:           privKey,
@@ -70,8 +74,22 @@ func init() {
 			expectedAlgorithm: RSA_SHA512,
 		},
 		{
+			name:              "digest on rsa signature",
+			prefs:             []Algorithm{RSA_SHA512},
+			digestAlg:         DigestSha256,
+			headers:           []string{"Date", "Digest"},
+			body:              []byte("Last night as I lay dreaming This strangest kind of feeling Revealed its secret meaning And now I know..."),
+			scheme:            Signature,
+			privKey:           privKey,
+			pubKey:            privKey.Public(),
+			pubKeyId:          "pubKeyId",
+			expectedAlgorithm: RSA_SHA512,
+			expectedDigest:    "SHA-256=TGFzdCBuaWdodCBhcyBJIGxheSBkcmVhbWluZyBUaGlzIHN0cmFuZ2VzdCBraW5kIG9mIGZlZWxpbmcgUmV2ZWFsZWQgaXRzIHNlY3JldCBtZWFuaW5nIEFuZCBub3cgSSBrbm93Li4u47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+		},
+		{
 			name:              "hmac signature",
 			prefs:             []Algorithm{HMAC_SHA256},
+			digestAlg:         DigestSha256,
 			headers:           []string{"Date", "Digest"},
 			scheme:            Signature,
 			privKey:           macKey,
@@ -80,8 +98,22 @@ func init() {
 			expectedAlgorithm: HMAC_SHA256,
 		},
 		{
+			name:              "digest on hmac signature",
+			prefs:             []Algorithm{HMAC_SHA256},
+			digestAlg:         DigestSha256,
+			headers:           []string{"Date", "Digest"},
+			body:              []byte("I've never ever been to paradise I've never ever seen no angel's eyes You'll never ever let this magic die No matter where you are, you are my lucky star."),
+			scheme:            Signature,
+			privKey:           macKey,
+			pubKey:            macKey,
+			pubKeyId:          "pubKeyId",
+			expectedAlgorithm: HMAC_SHA256,
+			expectedDigest:    "SHA-256=SSd2ZSBuZXZlciBldmVyIGJlZW4gdG8gcGFyYWRpc2UgSSd2ZSBuZXZlciBldmVyIHNlZW4gbm8gYW5nZWwncyBleWVzIFlvdSdsbCBuZXZlciBldmVyIGxldCB0aGlzIG1hZ2ljIGRpZSBObyBtYXR0ZXIgd2hlcmUgeW91IGFyZSwgeW91IGFyZSBteSBsdWNreSBzdGFyLuOwxEKY/BwUmvv0yJlvuSQnrkHkZJuTTKSVmRt4UrhV",
+		},
+		{
 			name:              "rsa authorization",
 			prefs:             []Algorithm{RSA_SHA512},
+			digestAlg:         DigestSha256,
 			headers:           []string{"Date", "Digest"},
 			scheme:            Authorization,
 			privKey:           privKey,
@@ -92,6 +124,7 @@ func init() {
 		{
 			name:              "hmac authorization",
 			prefs:             []Algorithm{HMAC_SHA256},
+			digestAlg:         DigestSha256,
 			headers:           []string{"Date", "Digest"},
 			scheme:            Authorization,
 			privKey:           macKey,
@@ -101,6 +134,7 @@ func init() {
 		},
 		{
 			name:              "default algo",
+			digestAlg:         DigestSha256,
 			headers:           []string{"Date", "Digest"},
 			scheme:            Signature,
 			privKey:           privKey,
@@ -111,6 +145,7 @@ func init() {
 		{
 			name:              "default headers",
 			prefs:             []Algorithm{RSA_SHA512},
+			digestAlg:         DigestSha256,
 			scheme:            Signature,
 			privKey:           privKey,
 			pubKey:            privKey.Public(),
@@ -120,6 +155,7 @@ func init() {
 		{
 			name:              "different pub key id",
 			prefs:             []Algorithm{RSA_SHA512},
+			digestAlg:         DigestSha256,
 			headers:           []string{"Date", "Digest"},
 			scheme:            Signature,
 			privKey:           privKey,
@@ -130,6 +166,7 @@ func init() {
 		{
 			name:                       "with request target",
 			prefs:                      []Algorithm{RSA_SHA512},
+			digestAlg:                  DigestSha256,
 			headers:                    []string{"Date", "Digest", RequestTarget},
 			scheme:                     Signature,
 			privKey:                    privKey,
@@ -168,7 +205,7 @@ func toHeaderSignatureParameters(k string, vals []string) string {
 
 func TestSignerRequest(t *testing.T) {
 	testFn := func(t *testing.T, test httpsigTest) {
-		s, a, err := NewSigner(test.prefs, test.headers, test.scheme)
+		s, a, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme)
 		if err != nil {
 			t.Fatalf("%s", err)
 		}
@@ -181,8 +218,10 @@ func TestSignerRequest(t *testing.T) {
 			t.Fatalf("%s", err)
 		}
 		req.Header.Set("Date", testDate)
-		req.Header.Set("Digest", testDigest)
-		err = s.SignRequest(test.privKey, test.pubKeyId, req)
+		if test.body == nil {
+			req.Header.Set("Digest", testDigest)
+		}
+		err = s.SignRequest(test.privKey, test.pubKeyId, req, test.body)
 		if err != nil {
 			t.Fatalf("%s", err)
 		}
@@ -201,6 +240,8 @@ func TestSignerRequest(t *testing.T) {
 			t.Fatalf("%s\ndoes not contain\n%s", vals[0], p)
 		} else if !strings.Contains(vals[0], signatureParameter) {
 			t.Fatalf("%s\ndoes not contain\n%s", vals[0], signatureParameter)
+		} else if test.body != nil && req.Header.Get("Digest") != test.expectedDigest {
+			t.Fatalf("%s\ndoes not match\n%s", req.Header.Get("Digest"), test.expectedDigest)
 		}
 		// For schemes with an authScheme, enforce its is present and at the beginning
 		if len(test.scheme.authScheme()) > 0 {
@@ -218,12 +259,14 @@ func TestSignerRequest(t *testing.T) {
 
 func TestSignerResponse(t *testing.T) {
 	testFn := func(t *testing.T, test httpsigTest) {
-		s, _, err := NewSigner(test.prefs, test.headers, test.scheme)
+		s, _, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme)
 		// Test response signing
 		resp := httptest.NewRecorder()
 		resp.HeaderMap.Set("Date", testDate)
-		resp.HeaderMap.Set("Digest", testDigest)
-		err = s.SignResponse(test.privKey, test.pubKeyId, resp)
+		if test.body == nil {
+			resp.HeaderMap.Set("Digest", testDigest)
+		}
+		err = s.SignResponse(test.privKey, test.pubKeyId, resp, test.body)
 		if test.expectErrorSigningResponse {
 			if err != nil {
 				// Skip rest of testing
@@ -247,6 +290,8 @@ func TestSignerResponse(t *testing.T) {
 			t.Fatalf("%s\ndoes not contain\n%s", vals[0], p)
 		} else if !strings.Contains(vals[0], signatureParameter) {
 			t.Fatalf("%s\ndoes not contain\n%s", vals[0], signatureParameter)
+		} else if test.body != nil && resp.Header().Get("Digest") != test.expectedDigest {
+			t.Fatalf("%s\ndoes not match\n%s", resp.Header().Get("Digest"), test.expectedDigest)
 		}
 		// For schemes with an authScheme, enforce its is present and at the beginning
 		if len(test.scheme.authScheme()) > 0 {
@@ -266,6 +311,7 @@ func TestNewSignerRequestMissingHeaders(t *testing.T) {
 	failingTests := []struct {
 		name              string
 		prefs             []Algorithm
+		digestAlg         DigestAlgorithm
 		headers           []string
 		scheme            SignatureScheme
 		privKey           crypto.PrivateKey
@@ -275,6 +321,7 @@ func TestNewSignerRequestMissingHeaders(t *testing.T) {
 		{
 			name:              "wants digest",
 			prefs:             []Algorithm{RSA_SHA512},
+			digestAlg:         DigestSha256,
 			headers:           []string{"Date", "Digest"},
 			scheme:            Signature,
 			privKey:           privKey,
@@ -285,7 +332,7 @@ func TestNewSignerRequestMissingHeaders(t *testing.T) {
 	for _, test := range failingTests {
 		t.Run(test.name, func(t *testing.T) {
 			test := test
-			s, a, err := NewSigner(test.prefs, test.headers, test.scheme)
+			s, a, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme)
 			if err != nil {
 				t.Fatalf("%s", err)
 			}
@@ -297,7 +344,7 @@ func TestNewSignerRequestMissingHeaders(t *testing.T) {
 				t.Fatalf("%s", err)
 			}
 			req.Header.Set("Date", testDate)
-			err = s.SignRequest(test.privKey, test.pubKeyId, req)
+			err = s.SignRequest(test.privKey, test.pubKeyId, req, nil)
 			if err == nil {
 				t.Fatalf("expect error but got nil")
 			}
@@ -309,6 +356,7 @@ func TestNewSignerResponseMissingHeaders(t *testing.T) {
 	failingTests := []struct {
 		name                       string
 		prefs                      []Algorithm
+		digestAlg                  DigestAlgorithm
 		headers                    []string
 		scheme                     SignatureScheme
 		privKey                    crypto.PrivateKey
@@ -319,6 +367,7 @@ func TestNewSignerResponseMissingHeaders(t *testing.T) {
 		{
 			name:              "want digest",
 			prefs:             []Algorithm{RSA_SHA512},
+			digestAlg:         DigestSha256,
 			headers:           []string{"Date", "Digest"},
 			scheme:            Signature,
 			privKey:           privKey,
@@ -329,7 +378,7 @@ func TestNewSignerResponseMissingHeaders(t *testing.T) {
 	for _, test := range failingTests {
 		t.Run(test.name, func(t *testing.T) {
 			test := test
-			s, a, err := NewSigner(test.prefs, test.headers, test.scheme)
+			s, a, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme)
 			if err != nil {
 				t.Fatalf("%s", err)
 			}
@@ -339,7 +388,7 @@ func TestNewSignerResponseMissingHeaders(t *testing.T) {
 			resp := httptest.NewRecorder()
 			resp.HeaderMap.Set("Date", testDate)
 			resp.HeaderMap.Set("Digest", testDigest)
-			err = s.SignResponse(test.privKey, test.pubKeyId, resp)
+			err = s.SignResponse(test.privKey, test.pubKeyId, resp, nil)
 			if err != nil {
 				t.Fatalf("expected error, got nil")
 			}
@@ -357,12 +406,14 @@ func TestNewVerifier(t *testing.T) {
 				t.Fatalf("%s", err)
 			}
 			req.Header.Set("Date", testDate)
-			req.Header.Set("Digest", testDigest)
-			s, _, err := NewSigner(test.prefs, test.headers, test.scheme)
+			if test.body == nil {
+				req.Header.Set("Digest", testDigest)
+			}
+			s, _, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme)
 			if err != nil {
 				t.Fatalf("%s", err)
 			}
-			err = s.SignRequest(test.privKey, test.pubKeyId, req)
+			err = s.SignRequest(test.privKey, test.pubKeyId, req, test.body)
 			if err != nil {
 				t.Fatalf("%s", err)
 			}
@@ -392,12 +443,14 @@ func TestNewResponseVerifier(t *testing.T) {
 			// Prepare
 			resp := httptest.NewRecorder()
 			resp.HeaderMap.Set("Date", testDate)
-			resp.HeaderMap.Set("Digest", testDigest)
-			s, _, err := NewSigner(test.prefs, test.headers, test.scheme)
+			if test.body == nil {
+				resp.HeaderMap.Set("Digest", testDigest)
+			}
+			s, _, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme)
 			if err != nil {
 				t.Fatalf("%s", err)
 			}
-			err = s.SignResponse(test.privKey, test.pubKeyId, resp)
+			err = s.SignResponse(test.privKey, test.pubKeyId, resp, test.body)
 			if err != nil {
 				t.Fatalf("%s", err)
 			}
@@ -465,12 +518,12 @@ func Test_Signing_HTTP_Messages_AppendixC(t *testing.T) {
 			r.Header["Content-Type"] = []string{"application/json"}
 			setDigest(r)
 
-			s, _, err := NewSigner([]Algorithm{RSA_SHA256}, test.headers, Authorization)
+			s, _, err := NewSigner([]Algorithm{RSA_SHA256}, DigestSha256, test.headers, Authorization)
 			if err != nil {
 				t.Fatalf("error creating signer: %s", err)
 			}
 
-			if err := s.SignRequest(testSpecRSAPrivateKey, "Test", r); err != nil {
+			if err := s.SignRequest(testSpecRSAPrivateKey, "Test", r, nil); err != nil {
 				t.Fatalf("error signing request: %s", err)
 			}
 
