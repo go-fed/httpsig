@@ -22,6 +22,14 @@ var digestToDef = map[DigestAlgorithm]crypto.Hash{
 	DigestSha512: crypto.SHA512,
 }
 
+// IsSupportedDigestAlgorithm returns true if hte string is supported by this
+// library, is not a hash known to be weak, and is supported by the hardware.
+func IsSupportedDigestAlgorithm(algo string) bool {
+	uc := DigestAlgorithm(strings.ToUpper(algo))
+	c, ok := digestToDef[uc]
+	return ok && c.Available()
+}
+
 func getHash(alg DigestAlgorithm) (h hash.Hash, toUse DigestAlgorithm, err error) {
 	upper := DigestAlgorithm(strings.ToUpper(string(alg)))
 	c, ok := digestToDef[upper]
