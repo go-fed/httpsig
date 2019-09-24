@@ -23,7 +23,7 @@ func TestAddDigest(t *testing.T) {
 			},
 			algo:           "SHA-256",
 			body:           []byte("johnny grab your gun"),
-			expectedDigest: "SHA-256=am9obm55IGdyYWIgeW91ciBndW7jsMRCmPwcFJr79MiZb7kkJ65B5GSbk0yklZkbeFK4VQ==",
+			expectedDigest: "SHA-256=RYiuVuVdRpU+BWcNUUg3sf0EbJjQ9LDj9tUqR546hhk=",
 		},
 		{
 			name: "adds sha512 digest",
@@ -33,7 +33,7 @@ func TestAddDigest(t *testing.T) {
 			},
 			algo:           "SHA-512",
 			body:           []byte("yours is the drill that will pierce the heavens"),
-			expectedDigest: "SHA-512=eW91cnMgaXMgdGhlIGRyaWxsIHRoYXQgd2lsbCBwaWVyY2UgdGhlIGhlYXZlbnPPg+E1fu+4vfFUKFDWbYAH1iDkBQtXFdyD9Kkh02zpzkfQ0TxdhfKw/4MY0od+7C9juTG9R0F6gaU4Mnr5J9o+",
+			expectedDigest: "SHA-512=bM0eBRnZkuiOTsejYNb/UpvFozde+Do1ZqlXfRTS39aGmoEzoXBpjmIIuznPslc3kaprUtI/VXH8/5HsD+thGg==",
 		},
 		{
 			name: "digest already set",
@@ -90,7 +90,7 @@ func TestVerifyDigest(t *testing.T) {
 			name: "verify sha256",
 			r: func() *http.Request {
 				r, _ := http.NewRequest("POST", "example.com", nil)
-				r.Header.Set("Digest", "SHA-256=am9obm55IGdyYWIgeW91ciBndW7jsMRCmPwcFJr79MiZb7kkJ65B5GSbk0yklZkbeFK4VQ==")
+				r.Header.Set("Digest", "SHA-256=RYiuVuVdRpU+BWcNUUg3sf0EbJjQ9LDj9tUqR546hhk=")
 				return r
 			},
 			body: []byte("johnny grab your gun"),
@@ -99,7 +99,7 @@ func TestVerifyDigest(t *testing.T) {
 			name: "verify sha512",
 			r: func() *http.Request {
 				r, _ := http.NewRequest("POST", "example.com", nil)
-				r.Header.Set("Digest", "SHA-512=eW91cnMgaXMgdGhlIGRyaWxsIHRoYXQgd2lsbCBwaWVyY2UgdGhlIGhlYXZlbnPPg+E1fu+4vfFUKFDWbYAH1iDkBQtXFdyD9Kkh02zpzkfQ0TxdhfKw/4MY0od+7C9juTG9R0F6gaU4Mnr5J9o+")
+				r.Header.Set("Digest", "SHA-512=bM0eBRnZkuiOTsejYNb/UpvFozde+Do1ZqlXfRTS39aGmoEzoXBpjmIIuznPslc3kaprUtI/VXH8/5HsD+thGg==")
 				return r
 			},
 			body: []byte("yours is the drill that will pierce the heavens"),

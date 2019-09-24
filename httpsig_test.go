@@ -84,7 +84,7 @@ func init() {
 			pubKey:            privKey.Public(),
 			pubKeyId:          "pubKeyId",
 			expectedAlgorithm: RSA_SHA512,
-			expectedDigest:    "SHA-256=TGFzdCBuaWdodCBhcyBJIGxheSBkcmVhbWluZyBUaGlzIHN0cmFuZ2VzdCBraW5kIG9mIGZlZWxpbmcgUmV2ZWFsZWQgaXRzIHNlY3JldCBtZWFuaW5nIEFuZCBub3cgSSBrbm93Li4u47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+			expectedDigest:    "SHA-256=07PJQngqg8+BlomdI6zM7ieOxhINWI+iivJxBDSm3Dg=",
 		},
 		{
 			name:              "hmac signature",
@@ -108,7 +108,7 @@ func init() {
 			pubKey:            macKey,
 			pubKeyId:          "pubKeyId",
 			expectedAlgorithm: HMAC_SHA256,
-			expectedDigest:    "SHA-256=SSd2ZSBuZXZlciBldmVyIGJlZW4gdG8gcGFyYWRpc2UgSSd2ZSBuZXZlciBldmVyIHNlZW4gbm8gYW5nZWwncyBleWVzIFlvdSdsbCBuZXZlciBldmVyIGxldCB0aGlzIG1hZ2ljIGRpZSBObyBtYXR0ZXIgd2hlcmUgeW91IGFyZSwgeW91IGFyZSBteSBsdWNreSBzdGFyLuOwxEKY/BwUmvv0yJlvuSQnrkHkZJuTTKSVmRt4UrhV",
+			expectedDigest:    "SHA-256=d0JoDjbDZRZF7/gUdgrazZCdKCJ9z9uUcMd6n1YKWRU=",
 		},
 		{
 			name:              "rsa authorization",
