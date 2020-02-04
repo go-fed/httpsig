@@ -186,12 +186,22 @@ type Verifier interface {
 	Verify(pKey crypto.PublicKey, algo Algorithm) error
 }
 
+const (
+	// host is treated specially because golang may not include it in the
+	// request header map on the server side of a request.
+	hostHeader = "Host"
+)
+
 // NewVerifier verifies the given request. It returns an error if the HTTP
 // Signature parameters are not present in any headers, are present in more than
 // one header, are malformed, or are missing required parameters. It ignores
 // unknown HTTP Signature parameters.
 func NewVerifier(r *http.Request) (Verifier, error) {
-	return newVerifier(r.Header, func(h http.Header, toInclude []string) (string, error) {
+	h := r.Header
+	if _, hasHostHeader := h[hostHeader]; len(r.Host) > 0 && !hasHostHeader {
+		h[hostHeader] = []string{r.Host}
+	}
+	return newVerifier(h, func(h http.Header, toInclude []string) (string, error) {
 		return signatureString(h, toInclude, addRequestTarget(r))
 	})
 }
