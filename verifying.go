@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+        "time"
+        "errors"
 )
 
 var _ Verifier = &verifier{}
@@ -27,6 +29,20 @@ func newVerifier(h http.Header, sigStringFn func(http.Header, []string, int64, i
 		return nil, err
 	}
 	kId, sig, headers, created, expires, err := getSignatureComponents(scheme, s)
+        if created != 0 {
+                //check if created is not in the future, we assume a maximum clock offset of 10 seconds
+                now := time.Now().Unix()
+                if created - now > 10 {
+                        return nil, errors.New("created is in the future")
+                }
+        }
+        if expires != 0 {
+                //check if expires is in the past, we assume a maximum clock offset of 10 seconds
+                now := time.Now().Unix()
+                if now - expires > 10 {
+                        return nil, errors.New("signature expired")
+                }
+        }
 	if err != nil {
 		return nil, err
 	}
