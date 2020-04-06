@@ -45,6 +45,13 @@ const (
 	RSA_SHA384    Algorithm = rsaPrefix + "-" + sha384String
 	RSA_SHA512    Algorithm = rsaPrefix + "-" + sha512String
 	RSA_RIPEMD160 Algorithm = rsaPrefix + "-" + ripemd160String
+        // ECDSA algorithms
+        ECDSA_SHA224 Algorithm = ecdsaPrefix + "-" + sha224String
+	ECDSA_SHA256    Algorithm = ecdsaPrefix + "-" + sha256String
+	ECDSA_SHA384    Algorithm = ecdsaPrefix + "-" + sha384String
+	ECDSA_SHA512    Algorithm = ecdsaPrefix + "-" + sha512String
+	ECDSA_RIPEMD160 Algorithm = ecdsaPrefix + "-" + ripemd160String
+
 	// Just because you can glue things together, doesn't mean they will
 	// work. The following options are not supported.
 	rsa_SHA3_224    Algorithm = rsaPrefix + "-" + sha3_224String
