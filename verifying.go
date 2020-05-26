@@ -1,11 +1,14 @@
 package httpsig
 
 import (
+        "strconv"
 	"crypto"
 	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strings"
+        "time"
+        "errors"
 )
 
 var _ Verifier = &verifier{}
@@ -14,16 +17,32 @@ type verifier struct {
 	header      http.Header
 	kId         string
 	signature   string
+        created     int64
+        expires     int64
 	headers     []string
-	sigStringFn func(http.Header, []string) (string, error)
+	sigStringFn func(http.Header, []string, int64, int64) (string, error)
 }
 
-func newVerifier(h http.Header, sigStringFn func(http.Header, []string) (string, error)) (*verifier, error) {
+func newVerifier(h http.Header, sigStringFn func(http.Header, []string, int64, int64) (string, error)) (*verifier, error) {
 	scheme, s, err := getSignatureScheme(h)
 	if err != nil {
 		return nil, err
 	}
-	kId, sig, headers, err := getSignatureComponents(scheme, s)
+	kId, sig, headers, created, expires, err := getSignatureComponents(scheme, s)
+        if created != 0 {
+                //check if created is not in the future, we assume a maximum clock offset of 10 seconds
+                now := time.Now().Unix()
+                if created - now > 10 {
+                        return nil, errors.New("created is in the future")
+                }
+        }
+        if expires != 0 {
+                //check if expires is in the past, we assume a maximum clock offset of 10 seconds
+                now := time.Now().Unix()
+                if now - expires > 10 {
+                        return nil, errors.New("signature expired")
+                }
+        }
 	if err != nil {
 		return nil, err
 	}
@@ -31,6 +50,8 @@ func newVerifier(h http.Header, sigStringFn func(http.Header, []string) (string,
 		header:      h,
 		kId:         kId,
 		signature:   sig,
+                created:     created,
+                expires:     expires,
 		headers:     headers,
 		sigStringFn: sigStringFn,
 	}, nil
@@ -57,7 +78,7 @@ func (v *verifier) macVerify(m macer, pKey crypto.PublicKey) error {
 	if !ok {
 		return fmt.Errorf("public key for MAC verifying must be of type []byte")
 	}
-	signature, err := v.sigStringFn(v.header, v.headers)
+	signature, err := v.sigStringFn(v.header, v.headers, v.created, v.expires)
 	if err != nil {
 		return err
 	}
@@ -75,7 +96,7 @@ func (v *verifier) macVerify(m macer, pKey crypto.PublicKey) error {
 }
 
 func (v *verifier) asymmVerify(s signer, pKey crypto.PublicKey) error {
-	toHash, err := v.sigStringFn(v.header, v.headers)
+	toHash, err := v.sigStringFn(v.header, v.headers, v.created, v.expires)
 	if err != nil {
 		return err
 	}
@@ -116,7 +137,7 @@ func getSignatureScheme(h http.Header) (scheme SignatureScheme, val string, err 
 	}
 }
 
-func getSignatureComponents(scheme SignatureScheme, s string) (kId, sig string, headers []string, err error) {
+func getSignatureComponents(scheme SignatureScheme, s string) (kId, sig string, headers []string, created int64, expires int64, err error) {
 	if as := scheme.authScheme(); len(as) > 0 {
 		s = strings.TrimPrefix(s, as+prefixSeparater)
 	}
@@ -132,6 +153,16 @@ func getSignatureComponents(scheme SignatureScheme, s string) (kId, sig string, 
 		switch k {
 		case keyIdParameter:
 			kId = v
+                case createdKey:
+                        created, err = strconv.ParseInt(v, 10, 64)
+                        if err != nil {
+                          return
+                        }
+                case expiresKey:
+                        expires, err = strconv.ParseInt(v, 10, 64)
+                        if err != nil {
+                          return
+                        }
 		case algorithmParameter:
 			// Deprecated, ignore
 		case headersParameter:
