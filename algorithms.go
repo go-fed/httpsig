@@ -2,13 +2,13 @@ package httpsig
 
 import (
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/hmac"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/sha512"
-        "crypto/ecdsa"
 	"crypto/subtle" // Use should trigger great care
-        "encoding/asn1"
+	"encoding/asn1"
 	"errors"
 	"fmt"
 	"golang.org/x/crypto/blake2b"
@@ -17,14 +17,14 @@ import (
 	"golang.org/x/crypto/sha3"
 	"hash"
 	"io"
+	"math/big"
 	"strings"
-        "math/big"
 )
 
 const (
 	hmacPrefix        = "hmac"
 	rsaPrefix         = "rsa"
-        ecdsaPrefix       = "ecdsa"
+	ecdsaPrefix       = "ecdsa"
 	md4String         = "md4"
 	md5String         = "md5"
 	sha1String        = "sha1"
@@ -234,7 +234,7 @@ func (r *ecdsaAlgorithm) setSig(b []byte) error {
 }
 
 type ECDSASignature struct {
-    R, S *big.Int
+	R, S *big.Int
 }
 
 func (r *ecdsaAlgorithm) Sign(rand io.Reader, p crypto.PrivateKey, sig []byte) ([]byte, error) {
@@ -246,13 +246,13 @@ func (r *ecdsaAlgorithm) Sign(rand io.Reader, p crypto.PrivateKey, sig []byte) (
 	if !ok {
 		return nil, errors.New("crypto.PrivateKey is not *ecdsa.PrivateKey")
 	}
-        R, S, err := ecdsa.Sign(rand, ecdsaK, r.Sum(nil))
-        if err != nil {
-                return nil, err
-        }
+	R, S, err := ecdsa.Sign(rand, ecdsaK, r.Sum(nil))
+	if err != nil {
+		return nil, err
+	}
 
-        signature := ECDSASignature {R: R, S: S}
-        bytes, err := asn1.Marshal(signature)
+	signature := ECDSASignature{R: R, S: S}
+	bytes, err := asn1.Marshal(signature)
 
 	return bytes, err
 }
@@ -267,17 +267,17 @@ func (r *ecdsaAlgorithm) Verify(pub crypto.PublicKey, toHash, signature []byte) 
 		return err
 	}
 
-        sig := new(ECDSASignature)
-        _, err := asn1.Unmarshal(signature, sig)
-        if err != nil {
-          return err
-        }
+	sig := new(ECDSASignature)
+	_, err := asn1.Unmarshal(signature, sig)
+	if err != nil {
+		return err
+	}
 
-        if ecdsa.Verify(ecdsaK, r.Sum(nil), sig.R, sig.S) {
-          return nil
-        } else {
-          return errors.New("Invalid signature")
-        }
+	if ecdsa.Verify(ecdsaK, r.Sum(nil), sig.R, sig.S) {
+		return nil
+	} else {
+		return errors.New("Invalid signature")
+	}
 }
 
 func (r *ecdsaAlgorithm) String() string {
@@ -389,26 +389,26 @@ func newAlgorithm(algo string, key []byte) (hash.Hash, crypto.Hash, error) {
 // signerFromString is an internally public method constructor
 func signerFromString(s string) (signer, error) {
 	s = strings.ToLower(s)
-        isEcdsa := false
-        var algo string = ""
-        if strings.HasPrefix(s, ecdsaPrefix) {
-                algo = strings.TrimPrefix(s, ecdsaPrefix + "-")
-                isEcdsa = true
-        } else if strings.HasPrefix(s, rsaPrefix) {
-	        algo = strings.TrimPrefix(s, rsaPrefix+"-")
+	isEcdsa := false
+	var algo string = ""
+	if strings.HasPrefix(s, ecdsaPrefix) {
+		algo = strings.TrimPrefix(s, ecdsaPrefix+"-")
+		isEcdsa = true
+	} else if strings.HasPrefix(s, rsaPrefix) {
+		algo = strings.TrimPrefix(s, rsaPrefix+"-")
 	} else {
 		return nil, fmt.Errorf("no signer matching %q", s)
-        }
+	}
 	hash, cHash, err := newAlgorithm(algo, nil)
 	if err != nil {
 		return nil, err
 	}
-        if isEcdsa {
-                return &ecdsaAlgorithm {
-                        Hash: hash,
-                        kind: cHash,
-                }, nil
-        }
+	if isEcdsa {
+		return &ecdsaAlgorithm{
+			Hash: hash,
+			kind: cHash,
+		}, nil
+	}
 	return &rsaAlgorithm{
 		Hash: hash,
 		kind: cHash,

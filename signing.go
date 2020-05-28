@@ -1,7 +1,6 @@
 package httpsig
 
 import (
-        "strconv"
 	"bytes"
 	"crypto"
 	"crypto/rand"
@@ -9,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/textproto"
+	"strconv"
 	"strings"
 )
 
@@ -26,8 +26,8 @@ const (
 	// RequestTarget specifies to include the http request method and
 	// entire URI in the signature. Pass it as a header to NewSigner.
 	RequestTarget = "(request-target)"
-        createdKey    = "created"
-        expiresKey    = "expires"
+	createdKey    = "created"
+	expiresKey    = "expires"
 	dateHeader    = "date"
 
 	// Signature String Construction
@@ -48,8 +48,8 @@ type macSigner struct {
 	headers      []string
 	targetHeader SignatureScheme
 	prefix       string
-        created      int64
-        expires      int64
+	created      int64
+	expires      int64
 }
 
 func (m *macSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *http.Request, body []byte) error {
@@ -120,8 +120,8 @@ type asymmSigner struct {
 	headers      []string
 	targetHeader SignatureScheme
 	prefix       string
-        created      int64
-        expires      int64
+	created      int64
+	expires      int64
 }
 
 func (a *asymmSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *http.Request, body []byte) error {
@@ -203,32 +203,32 @@ func setSignatureHeader(h http.Header, targetHeader, prefix, pubKeyId, algo, enc
 	b.WriteString(parameterValueDelimiter)
 	b.WriteString(parameterSeparater)
 
-        hasCreated := false
-        hasExpires := false
-        for _, h := range headers {
-                val := strings.ToLower(h)
-                if val == "(" + createdKey + ")" {
-                  hasCreated = true
-                } else if val == "(" + expiresKey + ")" {
-                  hasExpires = true
-                }
+	hasCreated := false
+	hasExpires := false
+	for _, h := range headers {
+		val := strings.ToLower(h)
+		if val == "("+createdKey+")" {
+			hasCreated = true
+		} else if val == "("+expiresKey+")" {
+			hasExpires = true
+		}
 	}
 
-        // Created
-        if hasCreated == true {
-          b.WriteString(createdKey)
-          b.WriteString(parameterKVSeparater)
-          b.WriteString(strconv.FormatInt(created, 10))
-	  b.WriteString(parameterSeparater)
-        }
+	// Created
+	if hasCreated == true {
+		b.WriteString(createdKey)
+		b.WriteString(parameterKVSeparater)
+		b.WriteString(strconv.FormatInt(created, 10))
+		b.WriteString(parameterSeparater)
+	}
 
-        // Expires
-        if hasExpires == true {
-          b.WriteString(expiresKey)
-          b.WriteString(parameterKVSeparater)
-          b.WriteString(strconv.FormatInt(expires, 10))
-	  b.WriteString(parameterSeparater)
-        }
+	// Expires
+	if hasExpires == true {
+		b.WriteString(expiresKey)
+		b.WriteString(parameterKVSeparater)
+		b.WriteString(strconv.FormatInt(expires, 10))
+		b.WriteString(parameterSeparater)
+	}
 
 	// Headers
 	b.WriteString(headersParameter)
@@ -284,20 +284,20 @@ func signatureString(values http.Header, include []string, requestTargetFn func(
 			if err != nil {
 				return "", err
 			}
-                } else if i == "(" + expiresKey + ")" {
-                        if expires == 0 {
-                          return "", fmt.Errorf("mssing expires value")
-                        }
-                        b.WriteString(i)
-                        b.WriteString(headerFieldDelimiter)
-                        b.WriteString(strconv.FormatInt(expires, 10))
-                } else if i == "(" + createdKey + ")" {
-                        if created == 0 {
-                          return "", fmt.Errorf("mssing created value")
-                        }
-                        b.WriteString(i)
-                        b.WriteString(headerFieldDelimiter)
-                        b.WriteString(strconv.FormatInt(created, 10))
+		} else if i == "("+expiresKey+")" {
+			if expires == 0 {
+				return "", fmt.Errorf("mssing expires value")
+			}
+			b.WriteString(i)
+			b.WriteString(headerFieldDelimiter)
+			b.WriteString(strconv.FormatInt(expires, 10))
+		} else if i == "("+createdKey+")" {
+			if created == 0 {
+				return "", fmt.Errorf("mssing created value")
+			}
+			b.WriteString(i)
+			b.WriteString(headerFieldDelimiter)
+			b.WriteString(strconv.FormatInt(created, 10))
 		} else {
 			hv, ok := values[textproto.CanonicalMIMEHeaderKey(i)]
 			if !ok {

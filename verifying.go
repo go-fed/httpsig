@@ -1,14 +1,14 @@
 package httpsig
 
 import (
-        "strconv"
 	"crypto"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
-        "time"
-        "errors"
+	"time"
 )
 
 var _ Verifier = &verifier{}
@@ -17,8 +17,8 @@ type verifier struct {
 	header      http.Header
 	kId         string
 	signature   string
-        created     int64
-        expires     int64
+	created     int64
+	expires     int64
 	headers     []string
 	sigStringFn func(http.Header, []string, int64, int64) (string, error)
 }
@@ -29,20 +29,20 @@ func newVerifier(h http.Header, sigStringFn func(http.Header, []string, int64, i
 		return nil, err
 	}
 	kId, sig, headers, created, expires, err := getSignatureComponents(scheme, s)
-        if created != 0 {
-                //check if created is not in the future, we assume a maximum clock offset of 10 seconds
-                now := time.Now().Unix()
-                if created - now > 10 {
-                        return nil, errors.New("created is in the future")
-                }
-        }
-        if expires != 0 {
-                //check if expires is in the past, we assume a maximum clock offset of 10 seconds
-                now := time.Now().Unix()
-                if now - expires > 10 {
-                        return nil, errors.New("signature expired")
-                }
-        }
+	if created != 0 {
+		//check if created is not in the future, we assume a maximum clock offset of 10 seconds
+		now := time.Now().Unix()
+		if created-now > 10 {
+			return nil, errors.New("created is in the future")
+		}
+	}
+	if expires != 0 {
+		//check if expires is in the past, we assume a maximum clock offset of 10 seconds
+		now := time.Now().Unix()
+		if now-expires > 10 {
+			return nil, errors.New("signature expired")
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -50,8 +50,8 @@ func newVerifier(h http.Header, sigStringFn func(http.Header, []string, int64, i
 		header:      h,
 		kId:         kId,
 		signature:   sig,
-                created:     created,
-                expires:     expires,
+		created:     created,
+		expires:     expires,
 		headers:     headers,
 		sigStringFn: sigStringFn,
 	}, nil
@@ -153,16 +153,16 @@ func getSignatureComponents(scheme SignatureScheme, s string) (kId, sig string, 
 		switch k {
 		case keyIdParameter:
 			kId = v
-                case createdKey:
-                        created, err = strconv.ParseInt(v, 10, 64)
-                        if err != nil {
-                          return
-                        }
-                case expiresKey:
-                        expires, err = strconv.ParseInt(v, 10, 64)
-                        if err != nil {
-                          return
-                        }
+		case createdKey:
+			created, err = strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				return
+			}
+		case expiresKey:
+			expires, err = strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				return
+			}
 		case algorithmParameter:
 			// Deprecated, ignore
 		case headersParameter:

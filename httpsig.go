@@ -8,10 +8,10 @@
 package httpsig
 
 import (
-        "time"
 	"crypto"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 // Algorithm specifies a cryptography secure algorithm for signing HTTP requests
@@ -46,8 +46,8 @@ const (
 	RSA_SHA384    Algorithm = rsaPrefix + "-" + sha384String
 	RSA_SHA512    Algorithm = rsaPrefix + "-" + sha512String
 	RSA_RIPEMD160 Algorithm = rsaPrefix + "-" + ripemd160String
-        // ECDSA algorithms
-        ECDSA_SHA224 Algorithm = ecdsaPrefix + "-" + sha224String
+	// ECDSA algorithms
+	ECDSA_SHA224    Algorithm = ecdsaPrefix + "-" + sha224String
 	ECDSA_SHA256    Algorithm = ecdsaPrefix + "-" + sha256String
 	ECDSA_SHA384    Algorithm = ecdsaPrefix + "-" + sha384String
 	ECDSA_SHA512    Algorithm = ecdsaPrefix + "-" + sha512String
@@ -224,11 +224,11 @@ func NewResponseVerifier(r *http.Response) (Verifier, error) {
 
 func newSigner(algo Algorithm, dAlgo DigestAlgorithm, headers []string, scheme SignatureScheme, expiresIn int64) (Signer, error) {
 
-        var expires, created int64 = 0, 0
-        if expiresIn != 0 {
-                created = time.Now().Unix()
-                expires = created + expiresIn
-        }
+	var expires, created int64 = 0, 0
+	if expiresIn != 0 {
+		created = time.Now().Unix()
+		expires = created + expiresIn
+	}
 
 	s, err := signerFromString(string(algo))
 	if err == nil {
@@ -238,8 +238,8 @@ func newSigner(algo Algorithm, dAlgo DigestAlgorithm, headers []string, scheme S
 			headers:      headers,
 			targetHeader: scheme,
 			prefix:       scheme.authScheme(),
-                        created:      created,
-                        expires:      expires,
+			created:      created,
+			expires:      expires,
 		}
 		return a, nil
 	}
@@ -253,9 +253,8 @@ func newSigner(algo Algorithm, dAlgo DigestAlgorithm, headers []string, scheme S
 		headers:      headers,
 		targetHeader: scheme,
 		prefix:       scheme.authScheme(),
-                created:      created,
-                expires:      expires,
-
+		created:      created,
+		expires:      expires,
 	}
 	return c, nil
 }
