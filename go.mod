@@ -1,5 +1,5 @@
 module github.com/go-fed/httpsig
 
-require golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
+require golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 
 go 1.13
