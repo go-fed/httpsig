@@ -286,14 +286,14 @@ func signatureString(values http.Header, include []string, requestTargetFn func(
 			}
 		} else if i == "("+expiresKey+")" {
 			if expires == 0 {
-				return "", fmt.Errorf("mssing expires value")
+				return "", fmt.Errorf("missing expires value")
 			}
 			b.WriteString(i)
 			b.WriteString(headerFieldDelimiter)
 			b.WriteString(strconv.FormatInt(expires, 10))
 		} else if i == "("+createdKey+")" {
 			if created == 0 {
-				return "", fmt.Errorf("mssing created value")
+				return "", fmt.Errorf("missing created value")
 			}
 			b.WriteString(i)
 			b.WriteString(headerFieldDelimiter)
