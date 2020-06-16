@@ -36,6 +36,7 @@ type httpsigTest struct {
 	privKey                    crypto.PrivateKey
 	pubKey                     crypto.PublicKey
 	pubKeyId                   string
+	expectedSignatureAlgorithm string
 	expectedAlgorithm          Algorithm
 	expectErrorSigningResponse bool
 	expectRequestPath          bool
@@ -63,105 +64,114 @@ func init() {
 	}
 	tests = []httpsigTest{
 		{
-			name:              "rsa signature",
-			prefs:             []Algorithm{RSA_SHA512},
-			digestAlg:         DigestSha256,
-			headers:           []string{"Date", "Digest"},
-			scheme:            Signature,
-			privKey:           privKey,
-			pubKey:            privKey.Public(),
-			pubKeyId:          "pubKeyId",
-			expectedAlgorithm: RSA_SHA512,
+			name:                       "rsa signature",
+			prefs:                      []Algorithm{RSA_SHA512},
+			digestAlg:                  DigestSha256,
+			headers:                    []string{"Date", "Digest"},
+			scheme:                     Signature,
+			privKey:                    privKey,
+			pubKey:                     privKey.Public(),
+			pubKeyId:                   "pubKeyId",
+			expectedAlgorithm:          RSA_SHA512,
+			expectedSignatureAlgorithm: "hs2019",
 		},
 		{
-			name:              "digest on rsa signature",
-			prefs:             []Algorithm{RSA_SHA512},
-			digestAlg:         DigestSha256,
-			headers:           []string{"Date", "Digest"},
-			body:              []byte("Last night as I lay dreaming This strangest kind of feeling Revealed its secret meaning And now I know..."),
-			scheme:            Signature,
-			privKey:           privKey,
-			pubKey:            privKey.Public(),
-			pubKeyId:          "pubKeyId",
-			expectedAlgorithm: RSA_SHA512,
-			expectedDigest:    "SHA-256=07PJQngqg8+BlomdI6zM7ieOxhINWI+iivJxBDSm3Dg=",
+			name:                       "digest on rsa signature",
+			prefs:                      []Algorithm{RSA_SHA512},
+			digestAlg:                  DigestSha256,
+			headers:                    []string{"Date", "Digest"},
+			body:                       []byte("Last night as I lay dreaming This strangest kind of feeling Revealed its secret meaning And now I know..."),
+			scheme:                     Signature,
+			privKey:                    privKey,
+			pubKey:                     privKey.Public(),
+			pubKeyId:                   "pubKeyId",
+			expectedAlgorithm:          RSA_SHA512,
+			expectedSignatureAlgorithm: "hs2019",
+			expectedDigest:             "SHA-256=07PJQngqg8+BlomdI6zM7ieOxhINWI+iivJxBDSm3Dg=",
 		},
 		{
-			name:              "hmac signature",
-			prefs:             []Algorithm{HMAC_SHA256},
-			digestAlg:         DigestSha256,
-			headers:           []string{"Date", "Digest"},
-			scheme:            Signature,
-			privKey:           macKey,
-			pubKey:            macKey,
-			pubKeyId:          "pubKeyId",
-			expectedAlgorithm: HMAC_SHA256,
+			name:                       "hmac signature",
+			prefs:                      []Algorithm{HMAC_SHA256},
+			digestAlg:                  DigestSha256,
+			headers:                    []string{"Date", "Digest"},
+			scheme:                     Signature,
+			privKey:                    macKey,
+			pubKey:                     macKey,
+			pubKeyId:                   "pubKeyId",
+			expectedAlgorithm:          HMAC_SHA256,
+			expectedSignatureAlgorithm: "hs2019",
 		},
 		{
-			name:              "digest on hmac signature",
-			prefs:             []Algorithm{HMAC_SHA256},
-			digestAlg:         DigestSha256,
-			headers:           []string{"Date", "Digest"},
-			body:              []byte("I've never ever been to paradise I've never ever seen no angel's eyes You'll never ever let this magic die No matter where you are, you are my lucky star."),
-			scheme:            Signature,
-			privKey:           macKey,
-			pubKey:            macKey,
-			pubKeyId:          "pubKeyId",
-			expectedAlgorithm: HMAC_SHA256,
-			expectedDigest:    "SHA-256=d0JoDjbDZRZF7/gUdgrazZCdKCJ9z9uUcMd6n1YKWRU=",
+			name:                       "digest on hmac signature",
+			prefs:                      []Algorithm{HMAC_SHA256},
+			digestAlg:                  DigestSha256,
+			headers:                    []string{"Date", "Digest"},
+			body:                       []byte("I've never ever been to paradise I've never ever seen no angel's eyes You'll never ever let this magic die No matter where you are, you are my lucky star."),
+			scheme:                     Signature,
+			privKey:                    macKey,
+			pubKey:                     macKey,
+			pubKeyId:                   "pubKeyId",
+			expectedAlgorithm:          HMAC_SHA256,
+			expectedSignatureAlgorithm: "hs2019",
+			expectedDigest:             "SHA-256=d0JoDjbDZRZF7/gUdgrazZCdKCJ9z9uUcMd6n1YKWRU=",
 		},
 		{
-			name:              "rsa authorization",
-			prefs:             []Algorithm{RSA_SHA512},
-			digestAlg:         DigestSha256,
-			headers:           []string{"Date", "Digest"},
-			scheme:            Authorization,
-			privKey:           privKey,
-			pubKey:            privKey.Public(),
-			pubKeyId:          "pubKeyId",
-			expectedAlgorithm: RSA_SHA512,
+			name:                       "rsa authorization",
+			prefs:                      []Algorithm{RSA_SHA512},
+			digestAlg:                  DigestSha256,
+			headers:                    []string{"Date", "Digest"},
+			scheme:                     Authorization,
+			privKey:                    privKey,
+			pubKey:                     privKey.Public(),
+			pubKeyId:                   "pubKeyId",
+			expectedAlgorithm:          RSA_SHA512,
+			expectedSignatureAlgorithm: "hs2019",
 		},
 		{
-			name:              "hmac authorization",
-			prefs:             []Algorithm{HMAC_SHA256},
-			digestAlg:         DigestSha256,
-			headers:           []string{"Date", "Digest"},
-			scheme:            Authorization,
-			privKey:           macKey,
-			pubKey:            macKey,
-			pubKeyId:          "pubKeyId",
-			expectedAlgorithm: HMAC_SHA256,
+			name:                       "hmac authorization",
+			prefs:                      []Algorithm{HMAC_SHA256},
+			digestAlg:                  DigestSha256,
+			headers:                    []string{"Date", "Digest"},
+			scheme:                     Authorization,
+			privKey:                    macKey,
+			pubKey:                     macKey,
+			pubKeyId:                   "pubKeyId",
+			expectedAlgorithm:          HMAC_SHA256,
+			expectedSignatureAlgorithm: "hs2019",
 		},
 		{
-			name:              "default algo",
-			digestAlg:         DigestSha256,
-			headers:           []string{"Date", "Digest"},
-			scheme:            Signature,
-			privKey:           privKey,
-			pubKey:            privKey.Public(),
-			pubKeyId:          "pubKeyId",
-			expectedAlgorithm: RSA_SHA256,
+			name:                       "default algo",
+			digestAlg:                  DigestSha256,
+			headers:                    []string{"Date", "Digest"},
+			scheme:                     Signature,
+			privKey:                    privKey,
+			pubKey:                     privKey.Public(),
+			pubKeyId:                   "pubKeyId",
+			expectedAlgorithm:          RSA_SHA256,
+			expectedSignatureAlgorithm: "hs2019",
 		},
 		{
-			name:              "default headers",
-			prefs:             []Algorithm{RSA_SHA512},
-			digestAlg:         DigestSha256,
-			scheme:            Signature,
-			privKey:           privKey,
-			pubKey:            privKey.Public(),
-			pubKeyId:          "pubKeyId",
-			expectedAlgorithm: RSA_SHA512,
+			name:                       "default headers",
+			prefs:                      []Algorithm{RSA_SHA512},
+			digestAlg:                  DigestSha256,
+			scheme:                     Signature,
+			privKey:                    privKey,
+			pubKey:                     privKey.Public(),
+			pubKeyId:                   "pubKeyId",
+			expectedAlgorithm:          RSA_SHA512,
+			expectedSignatureAlgorithm: "hs2019",
 		},
 		{
-			name:              "different pub key id",
-			prefs:             []Algorithm{RSA_SHA512},
-			digestAlg:         DigestSha256,
-			headers:           []string{"Date", "Digest"},
-			scheme:            Signature,
-			privKey:           privKey,
-			pubKey:            privKey.Public(),
-			pubKeyId:          "i write code that sucks",
-			expectedAlgorithm: RSA_SHA512,
+			name:                       "different pub key id",
+			prefs:                      []Algorithm{RSA_SHA512},
+			digestAlg:                  DigestSha256,
+			headers:                    []string{"Date", "Digest"},
+			scheme:                     Signature,
+			privKey:                    privKey,
+			pubKey:                     privKey.Public(),
+			pubKeyId:                   "i write code that sucks",
+			expectedAlgorithm:          RSA_SHA512,
+			expectedSignatureAlgorithm: "hs2019",
 		},
 		{
 			name:                       "with request target",
@@ -173,6 +183,7 @@ func init() {
 			pubKey:                     privKey.Public(),
 			pubKeyId:                   "pubKeyId",
 			expectedAlgorithm:          RSA_SHA512,
+			expectedSignatureAlgorithm: "hs2019",
 			expectErrorSigningResponse: true,
 			expectRequestPath:          true,
 		},
@@ -205,7 +216,7 @@ func toHeaderSignatureParameters(k string, vals []string) string {
 
 func TestSignerRequest(t *testing.T) {
 	testFn := func(t *testing.T, test httpsigTest) {
-		s, a, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme)
+		s, a, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme, 0)
 		if err != nil {
 			t.Fatalf("%s", err)
 		}
@@ -234,7 +245,7 @@ func TestSignerRequest(t *testing.T) {
 		}
 		if p := toSignatureParameter(keyIdParameter, test.pubKeyId); !strings.Contains(vals[0], p) {
 			t.Fatalf("%s\ndoes not contain\n%s", vals[0], p)
-		} else if p := toSignatureParameter(algorithmParameter, string(test.expectedAlgorithm)); !strings.Contains(vals[0], p) {
+		} else if p := toSignatureParameter(algorithmParameter, string(test.expectedSignatureAlgorithm)); !strings.Contains(vals[0], p) {
 			t.Fatalf("%s\ndoes not contain\n%s", vals[0], p)
 		} else if p := toHeaderSignatureParameters(headersParameter, test.headers); !strings.Contains(vals[0], p) {
 			t.Fatalf("%s\ndoes not contain\n%s", vals[0], p)
@@ -259,7 +270,7 @@ func TestSignerRequest(t *testing.T) {
 
 func TestSignerResponse(t *testing.T) {
 	testFn := func(t *testing.T, test httpsigTest) {
-		s, _, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme)
+		s, _, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme, 0)
 		// Test response signing
 		resp := httptest.NewRecorder()
 		resp.HeaderMap.Set("Date", testDate)
@@ -284,7 +295,7 @@ func TestSignerResponse(t *testing.T) {
 		}
 		if p := toSignatureParameter(keyIdParameter, test.pubKeyId); !strings.Contains(vals[0], p) {
 			t.Fatalf("%s\ndoes not contain\n%s", vals[0], p)
-		} else if p := toSignatureParameter(algorithmParameter, string(test.expectedAlgorithm)); !strings.Contains(vals[0], p) {
+		} else if p := toSignatureParameter(algorithmParameter, string(test.expectedSignatureAlgorithm)); !strings.Contains(vals[0], p) {
 			t.Fatalf("%s\ndoes not contain\n%s", vals[0], p)
 		} else if p := toHeaderSignatureParameters(headersParameter, test.headers); !strings.Contains(vals[0], p) {
 			t.Fatalf("%s\ndoes not contain\n%s", vals[0], p)
@@ -309,30 +320,32 @@ func TestSignerResponse(t *testing.T) {
 
 func TestNewSignerRequestMissingHeaders(t *testing.T) {
 	failingTests := []struct {
-		name              string
-		prefs             []Algorithm
-		digestAlg         DigestAlgorithm
-		headers           []string
-		scheme            SignatureScheme
-		privKey           crypto.PrivateKey
-		pubKeyId          string
-		expectedAlgorithm Algorithm
+		name                       string
+		prefs                      []Algorithm
+		digestAlg                  DigestAlgorithm
+		headers                    []string
+		scheme                     SignatureScheme
+		privKey                    crypto.PrivateKey
+		pubKeyId                   string
+		expectedAlgorithm          Algorithm
+		expectedSignatureAlgorithm string
 	}{
 		{
-			name:              "wants digest",
-			prefs:             []Algorithm{RSA_SHA512},
-			digestAlg:         DigestSha256,
-			headers:           []string{"Date", "Digest"},
-			scheme:            Signature,
-			privKey:           privKey,
-			pubKeyId:          "pubKeyId",
-			expectedAlgorithm: RSA_SHA512,
+			name:                       "wants digest",
+			prefs:                      []Algorithm{RSA_SHA512},
+			digestAlg:                  DigestSha256,
+			headers:                    []string{"Date", "Digest"},
+			scheme:                     Signature,
+			privKey:                    privKey,
+			pubKeyId:                   "pubKeyId",
+			expectedSignatureAlgorithm: "hs2019",
+			expectedAlgorithm:          RSA_SHA512,
 		},
 	}
 	for _, test := range failingTests {
 		t.Run(test.name, func(t *testing.T) {
 			test := test
-			s, a, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme)
+			s, a, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme, 0)
 			if err != nil {
 				t.Fatalf("%s", err)
 			}
@@ -363,22 +376,24 @@ func TestNewSignerResponseMissingHeaders(t *testing.T) {
 		pubKeyId                   string
 		expectedAlgorithm          Algorithm
 		expectErrorSigningResponse bool
+		expectedSignatureAlgorithm string
 	}{
 		{
-			name:              "want digest",
-			prefs:             []Algorithm{RSA_SHA512},
-			digestAlg:         DigestSha256,
-			headers:           []string{"Date", "Digest"},
-			scheme:            Signature,
-			privKey:           privKey,
-			pubKeyId:          "pubKeyId",
-			expectedAlgorithm: RSA_SHA512,
+			name:                       "want digest",
+			prefs:                      []Algorithm{RSA_SHA512},
+			digestAlg:                  DigestSha256,
+			headers:                    []string{"Date", "Digest"},
+			scheme:                     Signature,
+			privKey:                    privKey,
+			pubKeyId:                   "pubKeyId",
+			expectedSignatureAlgorithm: "hs2019",
+			expectedAlgorithm:          RSA_SHA512,
 		},
 	}
 	for _, test := range failingTests {
 		t.Run(test.name, func(t *testing.T) {
 			test := test
-			s, a, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme)
+			s, a, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme, 0)
 			if err != nil {
 				t.Fatalf("%s", err)
 			}
@@ -409,7 +424,7 @@ func TestNewVerifier(t *testing.T) {
 			if test.body == nil {
 				req.Header.Set("Digest", testDigest)
 			}
-			s, _, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme)
+			s, _, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme, 0)
 			if err != nil {
 				t.Fatalf("%s", err)
 			}
@@ -446,7 +461,7 @@ func TestNewResponseVerifier(t *testing.T) {
 			if test.body == nil {
 				resp.HeaderMap.Set("Digest", testDigest)
 			}
-			s, _, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme)
+			s, _, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme, 0)
 			if err != nil {
 				t.Fatalf("%s", err)
 			}
@@ -490,17 +505,17 @@ func Test_Signing_HTTP_Messages_AppendixC(t *testing.T) {
 			// NOTE: In verification, if there are no headers listed, the
 			// default headers (date) are indeed used as required by the
 			// specification.
-			expectedSignature: `Authorization: Signature keyId="Test",algorithm="rsa-sha256",headers="date",signature="SjWJWbWN7i0wzBvtPl8rbASWz5xQW6mcJmn+ibttBqtifLN7Sazz6m79cNfwwb8DMJ5cou1s7uEGKKCs+FLEEaDV5lp7q25WqS+lavg7T8hc0GppauB6hbgEKTwblDHYGEtbGmtdHgVCk9SuS13F0hZ8FD0k/5OxEPXe5WozsbM="`,
+			expectedSignature: `Authorization: Signature keyId="Test",algorithm="hs2019",headers="date",signature="SjWJWbWN7i0wzBvtPl8rbASWz5xQW6mcJmn+ibttBqtifLN7Sazz6m79cNfwwb8DMJ5cou1s7uEGKKCs+FLEEaDV5lp7q25WqS+lavg7T8hc0GppauB6hbgEKTwblDHYGEtbGmtdHgVCk9SuS13F0hZ8FD0k/5OxEPXe5WozsbM="`,
 		},
 		{
 			name:              "C.2.  Basic Test",
 			headers:           []string{"(request-target)", "host", "date"},
-			expectedSignature: `Authorization: Signature keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date",signature="qdx+H7PHHDZgy4y/Ahn9Tny9V3GP6YgBPyUXMmoxWtLbHpUnXS2mg2+SbrQDMCJypxBLSPQR2aAjn7ndmw2iicw3HMbe8VfEdKFYRqzic+efkb3nndiv/x1xSHDJWeSWkx3ButlYSuBskLu6kd9Fswtemr3lgdDEmn04swr2Os0="`,
+			expectedSignature: `Authorization: Signature keyId="Test",algorithm="hs2019",headers="(request-target) host date",signature="qdx+H7PHHDZgy4y/Ahn9Tny9V3GP6YgBPyUXMmoxWtLbHpUnXS2mg2+SbrQDMCJypxBLSPQR2aAjn7ndmw2iicw3HMbe8VfEdKFYRqzic+efkb3nndiv/x1xSHDJWeSWkx3ButlYSuBskLu6kd9Fswtemr3lgdDEmn04swr2Os0="`,
 		},
 		{
 			name:              "C.3.  All Headers Test",
 			headers:           []string{"(request-target)", "host", "date", "content-type", "digest", "content-length"},
-			expectedSignature: `Authorization: Signature keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date content-type digest content-length",signature="vSdrb+dS3EceC9bcwHSo4MlyKS59iFIrhgYkz8+oVLEEzmYZZvRs8rgOp+63LEM3v+MFHB32NfpB2bEKBIvB1q52LaEUHFv120V01IL+TAD48XaERZFukWgHoBTLMhYS2Gb51gWxpeIq8knRmPnYePbF5MOkR0Zkly4zKH7s1dE="`,
+			expectedSignature: `Authorization: Signature keyId="Test",algorithm="hs2019",headers="(request-target) host date content-type digest content-length",signature="vSdrb+dS3EceC9bcwHSo4MlyKS59iFIrhgYkz8+oVLEEzmYZZvRs8rgOp+63LEM3v+MFHB32NfpB2bEKBIvB1q52LaEUHFv120V01IL+TAD48XaERZFukWgHoBTLMhYS2Gb51gWxpeIq8knRmPnYePbF5MOkR0Zkly4zKH7s1dE="`,
 		},
 	}
 
@@ -518,7 +533,7 @@ func Test_Signing_HTTP_Messages_AppendixC(t *testing.T) {
 			r.Header["Content-Type"] = []string{"application/json"}
 			setDigest(r)
 
-			s, _, err := NewSigner([]Algorithm{RSA_SHA256}, DigestSha256, test.headers, Authorization)
+			s, _, err := NewSigner([]Algorithm{RSA_SHA256}, DigestSha256, test.headers, Authorization, 0)
 			if err != nil {
 				t.Fatalf("error creating signer: %s", err)
 			}
@@ -548,17 +563,17 @@ func Test_Verifying_HTTP_Messages_AppendixC(t *testing.T) {
 		{
 			name:      "C.1.  Default Test",
 			headers:   []string{},
-			signature: `Signature keyId="Test",algorithm="rsa-sha256",signature="SjWJWbWN7i0wzBvtPl8rbASWz5xQW6mcJmn+ibttBqtifLN7Sazz6m79cNfwwb8DMJ5cou1s7uEGKKCs+FLEEaDV5lp7q25WqS+lavg7T8hc0GppauB6hbgEKTwblDHYGEtbGmtdHgVCk9SuS13F0hZ8FD0k/5OxEPXe5WozsbM="`,
+			signature: `Signature keyId="Test",algorithm="hs2019",signature="SjWJWbWN7i0wzBvtPl8rbASWz5xQW6mcJmn+ibttBqtifLN7Sazz6m79cNfwwb8DMJ5cou1s7uEGKKCs+FLEEaDV5lp7q25WqS+lavg7T8hc0GppauB6hbgEKTwblDHYGEtbGmtdHgVCk9SuS13F0hZ8FD0k/5OxEPXe5WozsbM="`,
 		},
 		{
 			name:      "C.2.  Basic Test",
 			headers:   []string{"(request-target)", "host", "date"},
-			signature: `Signature keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date",signature="qdx+H7PHHDZgy4y/Ahn9Tny9V3GP6YgBPyUXMmoxWtLbHpUnXS2mg2+SbrQDMCJypxBLSPQR2aAjn7ndmw2iicw3HMbe8VfEdKFYRqzic+efkb3nndiv/x1xSHDJWeSWkx3ButlYSuBskLu6kd9Fswtemr3lgdDEmn04swr2Os0="`,
+			signature: `Signature keyId="Test",algorithm="hs2019",headers="(request-target) host date",signature="qdx+H7PHHDZgy4y/Ahn9Tny9V3GP6YgBPyUXMmoxWtLbHpUnXS2mg2+SbrQDMCJypxBLSPQR2aAjn7ndmw2iicw3HMbe8VfEdKFYRqzic+efkb3nndiv/x1xSHDJWeSWkx3ButlYSuBskLu6kd9Fswtemr3lgdDEmn04swr2Os0="`,
 		},
 		{
 			name:      "C.3.  All Headers Test",
 			headers:   []string{"(request-target)", "host", "date", "content-type", "digest", "content-length"},
-			signature: `Signature keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date content-type digest content-length",signature="vSdrb+dS3EceC9bcwHSo4MlyKS59iFIrhgYkz8+oVLEEzmYZZvRs8rgOp+63LEM3v+MFHB32NfpB2bEKBIvB1q52LaEUHFv120V01IL+TAD48XaERZFukWgHoBTLMhYS2Gb51gWxpeIq8knRmPnYePbF5MOkR0Zkly4zKH7s1dE="`,
+			signature: `Signature keyId="Test",algorithm="hs2019",headers="(request-target) host date content-type digest content-length",signature="vSdrb+dS3EceC9bcwHSo4MlyKS59iFIrhgYkz8+oVLEEzmYZZvRs8rgOp+63LEM3v+MFHB32NfpB2bEKBIvB1q52LaEUHFv120V01IL+TAD48XaERZFukWgHoBTLMhYS2Gb51gWxpeIq8knRmPnYePbF5MOkR0Zkly4zKH7s1dE="`,
 		},
 	}
 
