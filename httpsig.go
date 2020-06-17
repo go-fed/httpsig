@@ -52,6 +52,9 @@ const (
 	ECDSA_SHA384    Algorithm = ecdsaPrefix + "-" + sha384String
 	ECDSA_SHA512    Algorithm = ecdsaPrefix + "-" + sha512String
 	ECDSA_RIPEMD160 Algorithm = ecdsaPrefix + "-" + ripemd160String
+	// ED25519 algorithms
+	// can only be SHA512
+	ED25519 Algorithm = ed25519Prefix
 
 	// Just because you can glue things together, doesn't mean they will
 	// work. The following options are not supported.

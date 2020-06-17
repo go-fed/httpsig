@@ -11,20 +11,23 @@ import (
 	"encoding/asn1"
 	"errors"
 	"fmt"
-	"golang.org/x/crypto/blake2b"
-	"golang.org/x/crypto/blake2s"
-	"golang.org/x/crypto/ripemd160"
-	"golang.org/x/crypto/sha3"
 	"hash"
 	"io"
 	"math/big"
 	"strings"
+
+	"golang.org/x/crypto/blake2b"
+	"golang.org/x/crypto/blake2s"
+	"golang.org/x/crypto/ed25519"
+	"golang.org/x/crypto/ripemd160"
+	"golang.org/x/crypto/sha3"
 )
 
 const (
 	hmacPrefix        = "hmac"
 	rsaPrefix         = "rsa"
 	ecdsaPrefix       = "ecdsa"
+	ed25519Prefix     = "ed25519"
 	md4String         = "md4"
 	md5String         = "md5"
 	sha1String        = "sha1"
@@ -214,6 +217,35 @@ func (r *rsaAlgorithm) String() string {
 	return fmt.Sprintf("%s-%s", rsaPrefix, hashToDef[r.kind].name)
 }
 
+var _ signer = &ed25519Algorithm{}
+
+type ed25519Algorithm struct{}
+
+func (r *ed25519Algorithm) Sign(rand io.Reader, p crypto.PrivateKey, sig []byte) ([]byte, error) {
+	ed25519K, ok := p.(ed25519.PrivateKey)
+	if !ok {
+		return nil, errors.New("crypto.PrivateKey is not ed25519.PrivateKey")
+	}
+	return ed25519.Sign(ed25519K, sig), nil
+}
+
+func (r *ed25519Algorithm) Verify(pub crypto.PublicKey, toHash, signature []byte) error {
+	ed25519K, ok := pub.(ed25519.PublicKey)
+	if !ok {
+		return errors.New("crypto.PublicKey is not ed25519.PublicKey")
+	}
+
+	if ed25519.Verify(ed25519K, toHash, signature) {
+		return nil
+	}
+
+	return errors.New("ed25519 verify failed")
+}
+
+func (r *ed25519Algorithm) String() string {
+	return fmt.Sprintf("%s", ed25519Prefix)
+}
+
 var _ signer = &ecdsaAlgorithm{}
 
 type ecdsaAlgorithm struct {
@@ -390,18 +422,25 @@ func newAlgorithm(algo string, key []byte) (hash.Hash, crypto.Hash, error) {
 func signerFromString(s string) (signer, error) {
 	s = strings.ToLower(s)
 	isEcdsa := false
+	isEd25519 := false
 	var algo string = ""
 	if strings.HasPrefix(s, ecdsaPrefix) {
 		algo = strings.TrimPrefix(s, ecdsaPrefix+"-")
 		isEcdsa = true
 	} else if strings.HasPrefix(s, rsaPrefix) {
 		algo = strings.TrimPrefix(s, rsaPrefix+"-")
+	} else if strings.HasPrefix(s, ed25519Prefix) {
+		isEd25519 = true
+		algo = "sha512"
 	} else {
 		return nil, fmt.Errorf("no signer matching %q", s)
 	}
 	hash, cHash, err := newAlgorithm(algo, nil)
 	if err != nil {
 		return nil, err
+	}
+	if isEd25519 {
+		return &ed25519Algorithm{}, nil
 	}
 	if isEcdsa {
 		return &ecdsaAlgorithm{
