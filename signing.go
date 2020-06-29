@@ -179,6 +179,20 @@ func (a *asymmSigner) signatureStringResponse(r http.ResponseWriter) (string, er
 	return signatureString(r.Header(), a.headers, requestTargetNotPermitted, a.created, a.expires)
 }
 
+var _ SSHSigner = &asymmSSHSigner{}
+
+type asymmSSHSigner struct {
+	*asymmSigner
+}
+
+func (a *asymmSSHSigner) SignRequest(pubKeyId string, r *http.Request, body []byte) error {
+	return a.asymmSigner.SignRequest(nil, pubKeyId, r, body)
+}
+
+func (a *asymmSSHSigner) SignResponse(pubKeyId string, r http.ResponseWriter, body []byte) error {
+	return a.asymmSigner.SignResponse(nil, pubKeyId, r, body)
+}
+
 func setSignatureHeader(h http.Header, targetHeader, prefix, pubKeyId, algo, enc string, headers []string, created int64, expires int64) {
 	if len(headers) == 0 {
 		headers = defaultHeaders

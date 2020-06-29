@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"golang.org/x/crypto/ssh"
 )
 
 // Algorithm specifies a cryptography secure algorithm for signing HTTP requests
@@ -170,6 +172,70 @@ func NewSigner(prefs []Algorithm, dAlgo DigestAlgorithm, headers []string, schem
 	return s, defaultAlgorithm, err
 }
 
+// Signers will sign HTTP requests or responses based on the algorithms and
+// headers selected at creation time.
+//
+// Signers are not safe to use between multiple goroutines.
+//
+// Note that signatures do set the deprecated 'algorithm' parameter for
+// backwards compatibility.
+type SSHSigner interface {
+	// SignRequest signs the request using ssh.Signer.
+	// The public key id is used by the HTTP server to identify which key to use
+	// to verify the signature.
+	//
+	// A Digest (RFC 3230) will be added to the request. The body provided
+	// must match the body used in the request, and is allowed to be nil.
+	// The Digest ensures the request body is not tampered with in flight,
+	// and if the signer is created to also sign the "Digest" header, the
+	// HTTP Signature will then ensure both the Digest and body are not both
+	// modified to maliciously represent different content.
+	SignRequest(pubKeyId string, r *http.Request, body []byte) error
+	// SignResponse signs the response using ssh.Signer. The public key
+	// id is used by the HTTP client to identify which key to use to verify
+	// the signature.
+	//
+	// A Digest (RFC 3230) will be added to the response. The body provided
+	// must match the body written in the response, and is allowed to be
+	// nil. The Digest ensures the response body is not tampered with in
+	// flight, and if the signer is created to also sign the "Digest"
+	// header, the HTTP Signature will then ensure both the Digest and body
+	// are not both modified to maliciously represent different content.
+	SignResponse(pubKeyId string, r http.ResponseWriter, body []byte) error
+}
+
+// NewwSSHSigner creates a new Signer using the specified ssh.Signer
+// At the moment only ed25519 ssh keys are supported.
+// The headers specified will be included into the HTTP signatures.
+//
+// The Digest will also be calculated on a request's body using the provided
+// digest algorithm, if "Digest" is one of the headers listed.
+//
+// The provided scheme determines which header is populated with the HTTP
+// Signature.
+func NewSSHSigner(s ssh.Signer, dAlgo DigestAlgorithm, headers []string, scheme SignatureScheme, expiresIn int64) (SSHSigner, Algorithm, error) {
+	sshAlgo := getSSHAlgorithm(s.PublicKey().Type())
+	if sshAlgo == "" {
+		return nil, "", fmt.Errorf("key type: %s not supported yet.", s.PublicKey().Type())
+	}
+
+	signer, err := newSSHSigner(s, sshAlgo, dAlgo, headers, scheme, expiresIn)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return signer, sshAlgo, nil
+}
+
+func getSSHAlgorithm(pkType string) Algorithm {
+	switch pkType {
+	case "ssh-ed25519":
+		return ED25519
+	}
+
+	return ""
+}
+
 // Verifier verifies HTTP Signatures.
 //
 // It will determine which of the supported headers has the parameters
@@ -223,6 +289,34 @@ func NewResponseVerifier(r *http.Response) (Verifier, error) {
 	return newVerifier(r.Header, func(h http.Header, toInclude []string, created int64, expires int64) (string, error) {
 		return signatureString(h, toInclude, requestTargetNotPermitted, created, expires)
 	})
+}
+
+func newSSHSigner(sshSigner ssh.Signer, algo Algorithm, dAlgo DigestAlgorithm, headers []string, scheme SignatureScheme, expiresIn int64) (SSHSigner, error) {
+	var expires, created int64 = 0, 0
+
+	if expiresIn != 0 {
+		created = time.Now().Unix()
+		expires = created + expiresIn
+	}
+
+	s, err := signerFromSSHSigner(sshSigner, string(algo))
+	if err != nil {
+		return nil, fmt.Errorf("no crypto implementation available for ssh algo %q", algo)
+	}
+
+	a := &asymmSSHSigner{
+		asymmSigner: &asymmSigner{
+			s:            s,
+			dAlgo:        dAlgo,
+			headers:      headers,
+			targetHeader: scheme,
+			prefix:       scheme.authScheme(),
+			created:      created,
+			expires:      expires,
+		},
+	}
+
+	return a, nil
 }
 
 func newSigner(algo Algorithm, dAlgo DigestAlgorithm, headers []string, scheme SignatureScheme, expiresIn int64) (Signer, error) {

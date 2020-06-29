@@ -21,6 +21,7 @@ import (
 	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/ripemd160"
 	"golang.org/x/crypto/sha3"
+	"golang.org/x/crypto/ssh"
 )
 
 const (
@@ -219,9 +220,19 @@ func (r *rsaAlgorithm) String() string {
 
 var _ signer = &ed25519Algorithm{}
 
-type ed25519Algorithm struct{}
+type ed25519Algorithm struct {
+	sshSigner ssh.Signer
+}
 
 func (r *ed25519Algorithm) Sign(rand io.Reader, p crypto.PrivateKey, sig []byte) ([]byte, error) {
+	if r.sshSigner != nil {
+		sshsig, err := r.sshSigner.Sign(rand, sig)
+		if err != nil {
+			return nil, err
+		}
+
+		return sshsig.Blob, nil
+	}
 	ed25519K, ok := p.(ed25519.PrivateKey)
 	if !ok {
 		return nil, errors.New("crypto.PrivateKey is not ed25519.PrivateKey")
@@ -416,6 +427,15 @@ func newAlgorithm(algo string, key []byte) (hash.Hash, crypto.Hash, error) {
 	}
 	h, err := fn(key)
 	return h, c, err
+}
+
+func signerFromSSHSigner(sshSigner ssh.Signer, s string) (signer, error) {
+	if !strings.HasPrefix(s, ed25519Prefix) {
+		return nil, fmt.Errorf("no signer matching %q", s)
+	}
+	return &ed25519Algorithm{
+		sshSigner: sshSigner,
+	}, nil
 }
 
 // signerFromString is an internally public method constructor
