@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/hmac"
 	"crypto/rsa"
+	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/subtle" // Use should trigger great care
@@ -27,6 +28,7 @@ import (
 const (
 	hmacPrefix        = "hmac"
 	rsaPrefix         = "rsa"
+	sshPrefix         = "ssh"
 	ecdsaPrefix       = "ecdsa"
 	ed25519Prefix     = "ed25519"
 	md4String         = "md4"
@@ -66,9 +68,10 @@ var hashToDef = map[crypto.Hash]struct {
 	// http://www.iana.org/assignments/signature-algorithms
 	//
 	// Note that the forbidden hashes have an invalid 'new' function.
-	crypto.MD4:         {md4String, func(key []byte) (hash.Hash, error) { return nil, nil }},
-	crypto.MD5:         {md5String, func(key []byte) (hash.Hash, error) { return nil, nil }},
-	crypto.SHA1:        {sha1String, func(key []byte) (hash.Hash, error) { return nil, nil }},
+	crypto.MD4: {md4String, func(key []byte) (hash.Hash, error) { return nil, nil }},
+	crypto.MD5: {md5String, func(key []byte) (hash.Hash, error) { return nil, nil }},
+	// Temporarily enable SHA1 because of issue https://github.com/golang/go/issues/37278
+	crypto.SHA1:        {sha1String, func(key []byte) (hash.Hash, error) { return sha1.New(), nil }},
 	crypto.SHA224:      {sha224String, func(key []byte) (hash.Hash, error) { return sha256.New224(), nil }},
 	crypto.SHA256:      {sha256String, func(key []byte) (hash.Hash, error) { return sha256.New(), nil }},
 	crypto.SHA384:      {sha384String, func(key []byte) (hash.Hash, error) { return sha512.New384(), nil }},
@@ -114,8 +117,6 @@ func isForbiddenHash(h crypto.Hash) bool {
 	case crypto.MD4:
 		fallthrough
 	case crypto.MD5:
-		fallthrough
-	case crypto.SHA1:
 		fallthrough
 	case crypto.MD5SHA1: // shorthand for crypto/tls, not actually implemented
 		return true
@@ -175,7 +176,8 @@ var _ signer = &rsaAlgorithm{}
 
 type rsaAlgorithm struct {
 	hash.Hash
-	kind crypto.Hash
+	kind      crypto.Hash
+	sshSigner ssh.Signer
 }
 
 func (r *rsaAlgorithm) setSig(b []byte) error {
@@ -191,7 +193,16 @@ func (r *rsaAlgorithm) setSig(b []byte) error {
 }
 
 func (r *rsaAlgorithm) Sign(rand io.Reader, p crypto.PrivateKey, sig []byte) ([]byte, error) {
+	if r.sshSigner != nil {
+		sshsig, err := r.sshSigner.Sign(rand, sig)
+		if err != nil {
+			return nil, err
+		}
+
+		return sshsig.Blob, nil
+	}
 	defer r.Reset()
+
 	if err := r.setSig(sig); err != nil {
 		return nil, err
 	}
@@ -430,12 +441,18 @@ func newAlgorithm(algo string, key []byte) (hash.Hash, crypto.Hash, error) {
 }
 
 func signerFromSSHSigner(sshSigner ssh.Signer, s string) (signer, error) {
-	if !strings.HasPrefix(s, ed25519Prefix) {
+	switch {
+	case strings.HasPrefix(s, rsaPrefix):
+		return &rsaAlgorithm{
+			sshSigner: sshSigner,
+		}, nil
+	case strings.HasPrefix(s, ed25519Prefix):
+		return &ed25519Algorithm{
+			sshSigner: sshSigner,
+		}, nil
+	default:
 		return nil, fmt.Errorf("no signer matching %q", s)
 	}
-	return &ed25519Algorithm{
-		sshSigner: sshSigner,
-	}, nil
 }
 
 // signerFromString is an internally public method constructor
