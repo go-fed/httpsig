@@ -42,6 +42,7 @@ const (
 	BLAKE2B_384      Algorithm = blake2b_384String
 	BLAKE2B_512      Algorithm = blake2b_512String
 	// RSA-based algorithms.
+	RSA_SHA1   Algorithm = rsaPrefix + "-" + sha1String
 	RSA_SHA224 Algorithm = rsaPrefix + "-" + sha224String
 	// RSA_SHA256 is the default algorithm.
 	RSA_SHA256    Algorithm = rsaPrefix + "-" + sha256String
@@ -229,8 +230,10 @@ func NewSSHSigner(s ssh.Signer, dAlgo DigestAlgorithm, headers []string, scheme 
 
 func getSSHAlgorithm(pkType string) Algorithm {
 	switch pkType {
-	case "ssh-ed25519":
+	case sshPrefix + "-" + ed25519Prefix:
 		return ED25519
+	case sshPrefix + "-" + rsaPrefix:
+		return RSA_SHA1
 	}
 
 	return ""
