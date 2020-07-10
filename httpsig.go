@@ -11,6 +11,7 @@ import (
 	"crypto"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -229,10 +230,10 @@ func NewSSHSigner(s ssh.Signer, dAlgo DigestAlgorithm, headers []string, scheme 
 }
 
 func getSSHAlgorithm(pkType string) Algorithm {
-	switch pkType {
-	case sshPrefix + "-" + ed25519Prefix:
+	switch {
+	case strings.HasPrefix(pkType, sshPrefix+"-"+ed25519Prefix):
 		return ED25519
-	case sshPrefix + "-" + rsaPrefix:
+	case strings.HasPrefix(pkType, sshPrefix+"-"+rsaPrefix):
 		return RSA_SHA1
 	}
 
