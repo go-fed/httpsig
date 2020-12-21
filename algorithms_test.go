@@ -44,10 +44,11 @@ func TestIsAvailable(t *testing.T) {
 			expectError: true,
 		},
 		{
+			// TODO: Disable once https://github.com/golang/go/issues/37278 is fixed
 			name:        sha1String,
 			algo:        sha1String,
-			expected:    false,
-			expectError: true,
+			expected:    true,
+			expectError: false,
 		},
 		{
 			name:        sha224String,
