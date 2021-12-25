@@ -68,9 +68,8 @@ var hashToDef = map[crypto.Hash]struct {
 	// http://www.iana.org/assignments/signature-algorithms
 	//
 	// Note that the forbidden hashes have an invalid 'new' function.
-	crypto.MD4: {md4String, func(key []byte) (hash.Hash, error) { return nil, nil }},
-	crypto.MD5: {md5String, func(key []byte) (hash.Hash, error) { return nil, nil }},
-	// Temporarily enable SHA1 because of issue https://github.com/golang/go/issues/37278
+	crypto.MD4:         {md4String, func(key []byte) (hash.Hash, error) { return nil, nil }},
+	crypto.MD5:         {md5String, func(key []byte) (hash.Hash, error) { return nil, nil }},
 	crypto.SHA1:        {sha1String, func(key []byte) (hash.Hash, error) { return sha1.New(), nil }},
 	crypto.SHA224:      {sha224String, func(key []byte) (hash.Hash, error) { return sha256.New224(), nil }},
 	crypto.SHA256:      {sha256String, func(key []byte) (hash.Hash, error) { return sha256.New(), nil }},
@@ -192,11 +191,49 @@ func (r *rsaAlgorithm) setSig(b []byte) error {
 	return nil
 }
 
+// Code from https://github.com/cloudtools/ssh-cert-authority/pull/49/files
+// This interface provides a way to reach the exported, but not accessible SignWithOpts() method
+// in x/crypto/ssh/agent. Access to this is needed to sign with more secure signing algorithms
+type agentKeyringSigner interface {
+	SignWithOpts(rand io.Reader, data []byte, opts crypto.SignerOpts) (*ssh.Signature, error)
+}
+
+// A struct to wrap an SSH Signer with one that will switch to SHA256 Signatures.
+// Replaces the call to Sign() with a call to SignWithOpts using HashFunc() algorithm.
+type Sha256Signer struct {
+	ssh.Signer
+}
+
+func (s Sha256Signer) HashFunc() crypto.Hash {
+	return crypto.SHA256
+}
+
+func (s Sha256Signer) Sign(rand io.Reader, data []byte) (*ssh.Signature, error) {
+	if aks, ok := s.Signer.(agentKeyringSigner); !ok {
+		return nil, fmt.Errorf("ssh: can't wrap a non ssh agentKeyringSigner")
+	} else {
+		return aks.SignWithOpts(rand, data, s)
+	}
+}
+
 func (r *rsaAlgorithm) Sign(rand io.Reader, p crypto.PrivateKey, sig []byte) ([]byte, error) {
 	if r.sshSigner != nil {
-		sshsig, err := r.sshSigner.Sign(rand, sig)
-		if err != nil {
-			return nil, err
+		var (
+			sshsig *ssh.Signature
+			err    error
+		)
+		// are we using an SSH Agent
+		if _, ok := r.sshSigner.(agentKeyringSigner); ok {
+			signer := Sha256Signer{r.sshSigner}
+			sshsig, err = signer.Sign(rand, sig)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			sshsig, err = r.sshSigner.(ssh.AlgorithmSigner).SignWithAlgorithm(rand, sig, ssh.SigAlgoRSASHA2256)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		return sshsig.Blob, nil
