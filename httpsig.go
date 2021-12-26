@@ -234,7 +234,7 @@ func getSSHAlgorithm(pkType string) Algorithm {
 	case strings.HasPrefix(pkType, sshPrefix+"-"+ed25519Prefix):
 		return ED25519
 	case strings.HasPrefix(pkType, sshPrefix+"-"+rsaPrefix):
-		return RSA_SHA1
+		return RSA_SHA256
 	}
 
 	return ""
@@ -324,7 +324,6 @@ func newSSHSigner(sshSigner ssh.Signer, algo Algorithm, dAlgo DigestAlgorithm, h
 }
 
 func newSigner(algo Algorithm, dAlgo DigestAlgorithm, headers []string, scheme SignatureScheme, expiresIn int64) (Signer, error) {
-
 	var expires, created int64 = 0, 0
 	if expiresIn != 0 {
 		created = time.Now().Unix()
