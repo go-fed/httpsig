@@ -59,6 +59,7 @@ func (m *macSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *http
 			return err
 		}
 	}
+
 	s, err := m.signatureString(r)
 	if err != nil {
 		return err
@@ -198,6 +199,7 @@ func setSignatureHeader(h http.Header, targetHeader, prefix, pubKeyId, algo, enc
 		headers = defaultHeaders
 	}
 	var b bytes.Buffer
+
 	// KeyId
 	b.WriteString(prefix)
 	if len(prefix) > 0 {
@@ -209,6 +211,7 @@ func setSignatureHeader(h http.Header, targetHeader, prefix, pubKeyId, algo, enc
 	b.WriteString(pubKeyId)
 	b.WriteString(parameterValueDelimiter)
 	b.WriteString(parameterSeparater)
+
 	// Algorithm
 	b.WriteString(algorithmParameter)
 	b.WriteString(parameterKVSeparater)
@@ -256,6 +259,7 @@ func setSignatureHeader(h http.Header, targetHeader, prefix, pubKeyId, algo, enc
 	}
 	b.WriteString(parameterValueDelimiter)
 	b.WriteString(parameterSeparater)
+
 	// Signature
 	b.WriteString(signatureParameter)
 	b.WriteString(parameterKVSeparater)
@@ -271,16 +275,23 @@ func requestTargetNotPermitted(b *bytes.Buffer) error {
 
 func addRequestTarget(r *http.Request) func(b *bytes.Buffer) error {
 	return func(b *bytes.Buffer) error {
+		var value strings.Builder
+		value.WriteString(strings.ToLower(r.Method))
+		value.WriteString(requestTargetSeparator)
+		value.WriteString(r.URL.Path)
+		if !strings.HasSuffix(r.URL.Path, "/") {
+			value.WriteString("/")
+		}
+		if r.URL.RawQuery != "" {
+			value.WriteString("?")
+			value.WriteString(r.URL.RawQuery)
+		}
+
+		r.Header.Set(RequestTarget, value.String())
+
 		b.WriteString(RequestTarget)
 		b.WriteString(headerFieldDelimiter)
-		b.WriteString(strings.ToLower(r.Method))
-		b.WriteString(requestTargetSeparator)
-		b.WriteString(r.URL.Path)
-
-		if r.URL.RawQuery != "" {
-			b.WriteString("?")
-			b.WriteString(r.URL.RawQuery)
-		}
+		b.WriteString(value.String())
 
 		return nil
 	}
