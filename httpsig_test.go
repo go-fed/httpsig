@@ -42,7 +42,6 @@ type httpsigTest struct {
 	expectedSignatureAlgorithm string
 	expectedAlgorithm          Algorithm
 	expectErrorSigningResponse bool
-	expectRequestPath          bool
 	expectedDigest             string
 }
 
@@ -247,7 +246,6 @@ func init() {
 			expectedAlgorithm:          RSA_SHA512,
 			expectedSignatureAlgorithm: "hs2019",
 			expectErrorSigningResponse: true,
-			expectRequestPath:          true,
 		},
 	}
 
@@ -386,6 +384,84 @@ func TestSignerResponse(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			testFn(t, test)
+		})
+	}
+}
+
+func TestNewRequestTargetHeader(t *testing.T) {
+	tests := []struct {
+		name                       string
+		prefs                      []Algorithm
+		digestAlg                  DigestAlgorithm
+		headers                    []string
+		scheme                     SignatureScheme
+		privKey                    crypto.PrivateKey
+		pubKeyId                   string
+		pubKey                     crypto.PublicKey
+		expectedAlgorithm          Algorithm
+		expectedSignatureAlgorithm string
+		url                        string
+	}{
+		{
+			name:                       "root path without /",
+			prefs:                      []Algorithm{RSA_SHA512},
+			digestAlg:                  DigestSha256,
+			headers:                    []string{"Date", RequestTarget},
+			scheme:                     Signature,
+			privKey:                    privKey,
+			pubKeyId:                   "pubKeyId",
+			pubKey:                     privKey.Public(),
+			expectedSignatureAlgorithm: "hs2019",
+			expectedAlgorithm:          RSA_SHA512,
+			url:                        "", // empty url / path
+		},
+		{
+			name:                       "root path with /",
+			prefs:                      []Algorithm{RSA_SHA512},
+			digestAlg:                  DigestSha256,
+			headers:                    []string{"Date", RequestTarget},
+			scheme:                     Signature,
+			privKey:                    privKey,
+			pubKeyId:                   "pubKeyId",
+			pubKey:                     privKey.Public(),
+			expectedSignatureAlgorithm: "hs2019",
+			expectedAlgorithm:          RSA_SHA512,
+			url:                        "/",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			test := test
+			s, a, err := NewSigner(test.prefs, test.digestAlg, test.headers, test.scheme, 0)
+			if err != nil {
+				t.Fatalf("%s", err)
+			}
+			if a != test.expectedAlgorithm {
+				t.Fatalf("got %s, want %s", a, test.expectedAlgorithm)
+			}
+			req, err := http.NewRequest(testMethod, test.url, nil)
+			if err != nil {
+				t.Fatalf("%s", err)
+			}
+			req.Header.Set("Date", testDate)
+			err = s.SignRequest(test.privKey, test.pubKeyId, req, nil)
+			if err != nil {
+				t.Fatalf("signing failed: %s", err)
+			}
+
+			requestTarget := req.Header.Get(RequestTarget)
+			parts := strings.Split(requestTarget, requestTargetSeparator)
+			if len(parts) != 2 {
+				t.Fatalf("request target should contain two parts divided by '%s'", requestTargetSeparator)
+			}
+
+			if parts[0] != strings.ToLower(testMethod) {
+				t.Fatalf("request target method is '%s' expected '%s'", parts[0], strings.ToLower(testMethod))
+			}
+
+			if parts[1] != "/" {
+				t.Fatalf("request target path is '%s' expected '%s'", parts[1], "/")
+			}
 		})
 	}
 }
