@@ -562,9 +562,10 @@ func TestNewResponseVerifier(t *testing.T) {
 // https://tools.ietf.org/html/draft-cavage-http-signatures-10#appendix-C
 func Test_Signing_HTTP_Messages_AppendixC(t *testing.T) {
 	specTests := []struct {
-		name              string
-		headers           []string
-		expectedSignature string
+		name               string
+		headers            []string
+		excludeQueryString bool
+		expectedSignature  string
 	}{
 		{
 			name:    "C.1.  Default Test",
@@ -583,6 +584,12 @@ func Test_Signing_HTTP_Messages_AppendixC(t *testing.T) {
 			name:              "C.2.  Basic Test",
 			headers:           []string{"(request-target)", "host", "date"},
 			expectedSignature: `Authorization: Signature keyId="Test",algorithm="hs2019",headers="(request-target) host date",signature="qdx+H7PHHDZgy4y/Ahn9Tny9V3GP6YgBPyUXMmoxWtLbHpUnXS2mg2+SbrQDMCJypxBLSPQR2aAjn7ndmw2iicw3HMbe8VfEdKFYRqzic+efkb3nndiv/x1xSHDJWeSWkx3ButlYSuBskLu6kd9Fswtemr3lgdDEmn04swr2Os0="`,
+		},
+		{
+			name:               "C.2.  Basic Test - Exclude Query String",
+			headers:            []string{"(request-target)", "host", "date"},
+			excludeQueryString: true,
+			expectedSignature:  `Authorization: Signature keyId="Test",algorithm="hs2019",headers="(request-target) host date",signature="UTZ/RcfAkDv1tlRZ2R/lYxZ8c9H34hnp7eM4v/U9GC61CKIgZKTN3HTLK0Zd0Lg5QoGK78kNUmhBspkKJ27n9fTzEFb56DHKeilgt/SnT7PuL+E5U9ttm66l+RpF4IhPe0DV8VuYeb2UCNUw7UyyqrOQZtMe7CJVgBb0dn/92Z8="`,
 		},
 		{
 			name:              "C.3.  All Headers Test",
@@ -610,7 +617,11 @@ func Test_Signing_HTTP_Messages_AppendixC(t *testing.T) {
 				t.Fatalf("error creating signer: %s", err)
 			}
 
-			if err := s.SignRequest(testSpecRSAPrivateKey, "Test", r, nil); err != nil {
+			opts := SignatureOption{
+				ExcludeQueryStringFromPathPseudoHeader: test.excludeQueryString,
+			}
+
+			if err := s.SignRequestWithOptions(testSpecRSAPrivateKey, "Test", r, nil, opts); err != nil {
 				t.Fatalf("error signing request: %s", err)
 			}
 
@@ -691,9 +702,10 @@ func TestSigningEd25519(t *testing.T) {
 // https://tools.ietf.org/html/draft-cavage-http-signatures-10#appendix-C
 func Test_Verifying_HTTP_Messages_AppendixC(t *testing.T) {
 	specTests := []struct {
-		name      string
-		headers   []string
-		signature string
+		name               string
+		headers            []string
+		excludeQueryString bool
+		signature          string
 	}{
 		{
 			name:      "C.1.  Default Test",
@@ -704,6 +716,12 @@ func Test_Verifying_HTTP_Messages_AppendixC(t *testing.T) {
 			name:      "C.2.  Basic Test",
 			headers:   []string{"(request-target)", "host", "date"},
 			signature: `Signature keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date",signature="qdx+H7PHHDZgy4y/Ahn9Tny9V3GP6YgBPyUXMmoxWtLbHpUnXS2mg2+SbrQDMCJypxBLSPQR2aAjn7ndmw2iicw3HMbe8VfEdKFYRqzic+efkb3nndiv/x1xSHDJWeSWkx3ButlYSuBskLu6kd9Fswtemr3lgdDEmn04swr2Os0="`,
+		},
+		{
+			name:               "C.2.  Basic Test - Exclude Query String",
+			headers:            []string{"(request-target)", "host", "date"},
+			excludeQueryString: true,
+			signature:          `Signature keyId="Test",algorithm="hs2019",headers="(request-target) host date",signature="UTZ/RcfAkDv1tlRZ2R/lYxZ8c9H34hnp7eM4v/U9GC61CKIgZKTN3HTLK0Zd0Lg5QoGK78kNUmhBspkKJ27n9fTzEFb56DHKeilgt/SnT7PuL+E5U9ttm66l+RpF4IhPe0DV8VuYeb2UCNUw7UyyqrOQZtMe7CJVgBb0dn/92Z8="`,
 		},
 		{
 			name:      "C.3.  All Headers Test",
@@ -735,7 +753,12 @@ func Test_Verifying_HTTP_Messages_AppendixC(t *testing.T) {
 			if "Test" != v.KeyId() {
 				t.Errorf("KeyId mismatch\nGot: %s\nWant: Test", v.KeyId())
 			}
-			if err := v.Verify(testSpecRSAPublicKey, RSA_SHA256); err != nil {
+
+			opts := SignatureOption{
+				ExcludeQueryStringFromPathPseudoHeader: test.excludeQueryString,
+			}
+
+			if err := v.VerifyWithOptions(testSpecRSAPublicKey, RSA_SHA256, opts); err != nil {
 				t.Errorf("Verification failure: %s", err)
 			}
 		})

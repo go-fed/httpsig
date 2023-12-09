@@ -39,7 +39,7 @@ const (
 
 var defaultHeaders = []string{dateHeader}
 
-var _ Signer = &macSigner{}
+var _ SignerWithOptions = &macSigner{}
 
 type macSigner struct {
 	m            macer
@@ -53,13 +53,17 @@ type macSigner struct {
 }
 
 func (m *macSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *http.Request, body []byte) error {
+	return m.SignRequestWithOptions(pKey, pubKeyId, r, body, SignatureOption{})
+}
+
+func (m *macSigner) SignRequestWithOptions(pKey crypto.PrivateKey, pubKeyId string, r *http.Request, body []byte, opts SignatureOption) error {
 	if body != nil {
 		err := addDigest(r, m.dAlgo, body)
 		if err != nil {
 			return err
 		}
 	}
-	s, err := m.signatureString(r)
+	s, err := m.signatureString(r, opts)
 	if err != nil {
 		return err
 	}
@@ -72,6 +76,10 @@ func (m *macSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *http
 }
 
 func (m *macSigner) SignResponse(pKey crypto.PrivateKey, pubKeyId string, r http.ResponseWriter, body []byte) error {
+	return m.SignResponseWithOptions(pKey, pubKeyId, r, body, SignatureOption{})
+}
+
+func (m *macSigner) SignResponseWithOptions(pKey crypto.PrivateKey, pubKeyId string, r http.ResponseWriter, body []byte, _ SignatureOption) error {
 	if body != nil {
 		err := addDigestResponse(r, m.dAlgo, body)
 		if err != nil {
@@ -103,15 +111,15 @@ func (m *macSigner) signSignature(pKey crypto.PrivateKey, s string) (string, err
 	return enc, nil
 }
 
-func (m *macSigner) signatureString(r *http.Request) (string, error) {
-	return signatureString(r.Header, m.headers, addRequestTarget(r), m.created, m.expires)
+func (m *macSigner) signatureString(r *http.Request, opts SignatureOption) (string, error) {
+	return signatureString(r.Header, m.headers, addRequestTarget(r, opts), m.created, m.expires)
 }
 
 func (m *macSigner) signatureStringResponse(r http.ResponseWriter) (string, error) {
 	return signatureString(r.Header(), m.headers, requestTargetNotPermitted, m.created, m.expires)
 }
 
-var _ Signer = &asymmSigner{}
+var _ SignerWithOptions = &asymmSigner{}
 
 type asymmSigner struct {
 	s            signer
@@ -125,13 +133,17 @@ type asymmSigner struct {
 }
 
 func (a *asymmSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *http.Request, body []byte) error {
+	return a.SignRequestWithOptions(pKey, pubKeyId, r, body, SignatureOption{})
+}
+
+func (a *asymmSigner) SignRequestWithOptions(pKey crypto.PrivateKey, pubKeyId string, r *http.Request, body []byte, opts SignatureOption) error {
 	if body != nil {
 		err := addDigest(r, a.dAlgo, body)
 		if err != nil {
 			return err
 		}
 	}
-	s, err := a.signatureString(r)
+	s, err := a.signatureString(r, opts)
 	if err != nil {
 		return err
 	}
@@ -144,6 +156,10 @@ func (a *asymmSigner) SignRequest(pKey crypto.PrivateKey, pubKeyId string, r *ht
 }
 
 func (a *asymmSigner) SignResponse(pKey crypto.PrivateKey, pubKeyId string, r http.ResponseWriter, body []byte) error {
+	return a.SignResponseWithOptions(pKey, pubKeyId, r, body, SignatureOption{})
+}
+
+func (a *asymmSigner) SignResponseWithOptions(pKey crypto.PrivateKey, pubKeyId string, r http.ResponseWriter, body []byte, _ SignatureOption) error {
 	if body != nil {
 		err := addDigestResponse(r, a.dAlgo, body)
 		if err != nil {
@@ -171,8 +187,8 @@ func (a *asymmSigner) signSignature(pKey crypto.PrivateKey, s string) (string, e
 	return enc, nil
 }
 
-func (a *asymmSigner) signatureString(r *http.Request) (string, error) {
-	return signatureString(r.Header, a.headers, addRequestTarget(r), a.created, a.expires)
+func (a *asymmSigner) signatureString(r *http.Request, opts SignatureOption) (string, error) {
+	return signatureString(r.Header, a.headers, addRequestTarget(r, opts), a.created, a.expires)
 }
 
 func (a *asymmSigner) signatureStringResponse(r http.ResponseWriter) (string, error) {
@@ -269,7 +285,7 @@ func requestTargetNotPermitted(b *bytes.Buffer) error {
 	return fmt.Errorf("cannot sign with %q on anything other than an http request", RequestTarget)
 }
 
-func addRequestTarget(r *http.Request) func(b *bytes.Buffer) error {
+func addRequestTarget(r *http.Request, opts SignatureOption) func(b *bytes.Buffer) error {
 	return func(b *bytes.Buffer) error {
 		b.WriteString(RequestTarget)
 		b.WriteString(headerFieldDelimiter)
@@ -277,7 +293,7 @@ func addRequestTarget(r *http.Request) func(b *bytes.Buffer) error {
 		b.WriteString(requestTargetSeparator)
 		b.WriteString(r.URL.Path)
 
-		if r.URL.RawQuery != "" {
+		if !opts.ExcludeQueryStringFromPathPseudoHeader && r.URL.RawQuery != "" {
 			b.WriteString("?")
 			b.WriteString(r.URL.RawQuery)
 		}
