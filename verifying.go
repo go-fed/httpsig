@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-var _ Verifier = &verifier{}
+var _ VerifierWithOptions = &verifier{}
 
 type verifier struct {
 	header      http.Header
@@ -20,10 +20,10 @@ type verifier struct {
 	created     int64
 	expires     int64
 	headers     []string
-	sigStringFn func(http.Header, []string, int64, int64) (string, error)
+	sigStringFn func(http.Header, []string, int64, int64, SignatureOption) (string, error)
 }
 
-func newVerifier(h http.Header, sigStringFn func(http.Header, []string, int64, int64) (string, error)) (*verifier, error) {
+func newVerifier(h http.Header, sigStringFn func(http.Header, []string, int64, int64, SignatureOption) (string, error)) (*verifier, error) {
 	scheme, s, err := getSignatureScheme(h)
 	if err != nil {
 		return nil, err
@@ -62,23 +62,27 @@ func (v *verifier) KeyId() string {
 }
 
 func (v *verifier) Verify(pKey crypto.PublicKey, algo Algorithm) error {
+	return v.VerifyWithOptions(pKey, algo, SignatureOption{})
+}
+
+func (v *verifier) VerifyWithOptions(pKey crypto.PublicKey, algo Algorithm, opts SignatureOption) error {
 	s, err := signerFromString(string(algo))
 	if err == nil {
-		return v.asymmVerify(s, pKey)
+		return v.asymmVerify(s, pKey, opts)
 	}
 	m, err := macerFromString(string(algo))
 	if err == nil {
-		return v.macVerify(m, pKey)
+		return v.macVerify(m, pKey, opts)
 	}
 	return fmt.Errorf("no crypto implementation available for %q: %s", algo, err)
 }
 
-func (v *verifier) macVerify(m macer, pKey crypto.PublicKey) error {
+func (v *verifier) macVerify(m macer, pKey crypto.PublicKey, opts SignatureOption) error {
 	key, ok := pKey.([]byte)
 	if !ok {
 		return fmt.Errorf("public key for MAC verifying must be of type []byte")
 	}
-	signature, err := v.sigStringFn(v.header, v.headers, v.created, v.expires)
+	signature, err := v.sigStringFn(v.header, v.headers, v.created, v.expires, opts)
 	if err != nil {
 		return err
 	}
@@ -95,8 +99,8 @@ func (v *verifier) macVerify(m macer, pKey crypto.PublicKey) error {
 	return nil
 }
 
-func (v *verifier) asymmVerify(s signer, pKey crypto.PublicKey) error {
-	toHash, err := v.sigStringFn(v.header, v.headers, v.created, v.expires)
+func (v *verifier) asymmVerify(s signer, pKey crypto.PublicKey, opts SignatureOption) error {
+	toHash, err := v.sigStringFn(v.header, v.headers, v.created, v.expires, opts)
 	if err != nil {
 		return err
 	}

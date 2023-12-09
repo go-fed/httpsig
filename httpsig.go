@@ -106,6 +106,15 @@ func (s SignatureScheme) authScheme() string {
 	}
 }
 
+type SignatureOption struct {
+	// ExcludeQueryStringFromPathPseudoHeader omits the query parameters from the
+	// `:path` pseudo-header in the HTTP signature.
+	//
+	// The query string is optional in the `:path` pseudo-header.
+	// https://www.rfc-editor.org/rfc/rfc9113#section-8.3.1-2.4.1
+	ExcludeQueryStringFromPathPseudoHeader bool
+}
+
 // Signers will sign HTTP requests or responses based on the algorithms and
 // headers selected at creation time.
 //
@@ -148,6 +157,43 @@ type Signer interface {
 	SignResponse(pKey crypto.PrivateKey, pubKeyId string, r http.ResponseWriter, body []byte) error
 }
 
+type SignerWithOptions interface {
+	Signer
+
+	// SignRequest signs the request using a private key. The public key id
+	// is used by the HTTP server to identify which key to use to verify the
+	// signature.
+	//
+	// If the Signer was created using a MAC based algorithm, then the key
+	// is expected to be of type []byte. If the Signer was created using an
+	// RSA based algorithm, then the private key is expected to be of type
+	// *rsa.PrivateKey.
+	//
+	// A Digest (RFC 3230) will be added to the request. The body provided
+	// must match the body used in the request, and is allowed to be nil.
+	// The Digest ensures the request body is not tampered with in flight,
+	// and if the signer is created to also sign the "Digest" header, the
+	// HTTP Signature will then ensure both the Digest and body are not both
+	// modified to maliciously represent different content.
+	SignRequestWithOptions(pKey crypto.PrivateKey, pubKeyId string, r *http.Request, body []byte, opts SignatureOption) error
+	// SignResponse signs the response using a private key. The public key
+	// id is used by the HTTP client to identify which key to use to verify
+	// the signature.
+	//
+	// If the Signer was created using a MAC based algorithm, then the key
+	// is expected to be of type []byte. If the Signer was created using an
+	// RSA based algorithm, then the private key is expected to be of type
+	// *rsa.PrivateKey.
+	//
+	// A Digest (RFC 3230) will be added to the response. The body provided
+	// must match the body written in the response, and is allowed to be
+	// nil. The Digest ensures the response body is not tampered with in
+	// flight, and if the signer is created to also sign the "Digest"
+	// header, the HTTP Signature will then ensure both the Digest and body
+	// are not both modified to maliciously represent different content.
+	SignResponseWithOptions(pKey crypto.PrivateKey, pubKeyId string, r http.ResponseWriter, body []byte, opts SignatureOption) error
+}
+
 // NewSigner creates a new Signer with the provided algorithm preferences to
 // make HTTP signatures. Only the first available algorithm will be used, which
 // is returned by this function along with the Signer. If none of the preferred
@@ -162,7 +208,7 @@ type Signer interface {
 //
 // An error is returned if an unknown or a known cryptographically insecure
 // Algorithm is provided.
-func NewSigner(prefs []Algorithm, dAlgo DigestAlgorithm, headers []string, scheme SignatureScheme, expiresIn int64) (Signer, Algorithm, error) {
+func NewSigner(prefs []Algorithm, dAlgo DigestAlgorithm, headers []string, scheme SignatureScheme, expiresIn int64) (SignerWithOptions, Algorithm, error) {
 	for _, pref := range prefs {
 		s, err := newSigner(pref, dAlgo, headers, scheme, expiresIn)
 		if err != nil {
@@ -267,6 +313,12 @@ type Verifier interface {
 	Verify(pKey crypto.PublicKey, algo Algorithm) error
 }
 
+type VerifierWithOptions interface {
+	Verifier
+
+	VerifyWithOptions(pKey crypto.PublicKey, algo Algorithm, opts SignatureOption) error
+}
+
 const (
 	// host is treated specially because golang may not include it in the
 	// request header map on the server side of a request.
@@ -277,20 +329,20 @@ const (
 // Signature parameters are not present in any headers, are present in more than
 // one header, are malformed, or are missing required parameters. It ignores
 // unknown HTTP Signature parameters.
-func NewVerifier(r *http.Request) (Verifier, error) {
+func NewVerifier(r *http.Request) (VerifierWithOptions, error) {
 	h := r.Header
 	if _, hasHostHeader := h[hostHeader]; len(r.Host) > 0 && !hasHostHeader {
 		h[hostHeader] = []string{r.Host}
 	}
-	return newVerifier(h, func(h http.Header, toInclude []string, created int64, expires int64) (string, error) {
-		return signatureString(h, toInclude, addRequestTarget(r), created, expires)
+	return newVerifier(h, func(h http.Header, toInclude []string, created int64, expires int64, opts SignatureOption) (string, error) {
+		return signatureString(h, toInclude, addRequestTarget(r, opts), created, expires)
 	})
 }
 
 // NewResponseVerifier verifies the given response. It returns errors under the
 // same conditions as NewVerifier.
 func NewResponseVerifier(r *http.Response) (Verifier, error) {
-	return newVerifier(r.Header, func(h http.Header, toInclude []string, created int64, expires int64) (string, error) {
+	return newVerifier(r.Header, func(h http.Header, toInclude []string, created int64, expires int64, _ SignatureOption) (string, error) {
 		return signatureString(h, toInclude, requestTargetNotPermitted, created, expires)
 	})
 }
@@ -323,7 +375,7 @@ func newSSHSigner(sshSigner ssh.Signer, algo Algorithm, dAlgo DigestAlgorithm, h
 	return a, nil
 }
 
-func newSigner(algo Algorithm, dAlgo DigestAlgorithm, headers []string, scheme SignatureScheme, expiresIn int64) (Signer, error) {
+func newSigner(algo Algorithm, dAlgo DigestAlgorithm, headers []string, scheme SignatureScheme, expiresIn int64) (SignerWithOptions, error) {
 
 	var expires, created int64 = 0, 0
 	if expiresIn != 0 {
