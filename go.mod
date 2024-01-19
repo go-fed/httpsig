@@ -1,5 +1,7 @@
-module github.com/go-fed/httpsig
+module github.com/superseriousbusiness/httpsig
 
-require golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+require golang.org/x/crypto v0.18.0
 
-go 1.13
+require golang.org/x/sys v0.16.0 // indirect
+
+go 1.21
